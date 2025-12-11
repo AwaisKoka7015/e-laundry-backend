@@ -1,5 +1,6 @@
 // Prisma Schema for E-Laundry App
 // Database: PostgreSQL
+// VERSION: 2.0 - Added Services, Orders, Reviews, Notifications, Delivery Partner
 
 generator client {
   provider = "prisma-client-js"
@@ -17,6 +18,8 @@ datasource db {
 enum Role {
   CUSTOMER
   LAUNDRY
+  DELIVERY_PARTNER
+  ADMIN
 }
 
 enum Gender {
@@ -27,11 +30,71 @@ enum Gender {
 }
 
 enum AccountStatus {
-  PENDING_ROLE      // Just registered, no role selected
-  PENDING_LOCATION  // Role selected, location pending
-  ACTIVE            // Fully registered
+  PENDING_ROLE
+  PENDING_LOCATION
+  ACTIVE
   SUSPENDED
   DELETED
+}
+
+enum ClothingType {
+  MEN
+  WOMEN
+  KIDS
+  HOME
+}
+
+enum PriceUnit {
+  PER_PIECE
+  PER_KG
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  PICKUP_SCHEDULED
+  PICKED_UP
+  PROCESSING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+enum OrderType {
+  STANDARD
+  EXPRESS
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  COD
+  JAZZCASH
+  EASYPAISA
+  CARD
+}
+
+enum NotificationType {
+  ORDER_UPDATE
+  PROMO
+  SYSTEM
+  REVIEW
+  WELCOME
+}
+
+enum DeliveryPartnerStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  INACTIVE
+  SUSPENDED
 }
 
 // ============================================
@@ -41,11 +104,11 @@ enum AccountStatus {
 model TempAccount {
   id           String   @id @default(uuid())
   phone_number String   @unique
-  otp_code     String   @default("0000") // Constant for now
+  otp_code     String   @default("0000")
   otp_verified Boolean  @default(false)
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
-  expires_at   DateTime // OTP expiry
+  expires_at   DateTime
 
   @@map("temp_accounts")
 }
@@ -59,28 +122,27 @@ model User {
   phone_number   String        @unique
   name           String?
   email          String?       @unique
-  avatar         String?       // Cloudinary URL
+  avatar         String?
   gender         Gender?
   role           Role          @default(CUSTOMER)
   status         AccountStatus @default(PENDING_LOCATION)
   
-  // Location
   latitude       Float?
   longitude      Float?
-  near_landmark  String?       // Optional, filled from settings
-  address_text   String?       // Manual address (optional)
+  near_landmark  String?
+  address_text   String?
   city           String?
   
-  // Push Notifications
   fcm_token      String?
   
-  // Timestamps
   created_at     DateTime      @default(now())
   updated_at     DateTime      @updatedAt
   last_login     DateTime?
   
-  // Relations
   refresh_tokens RefreshToken[]
+  orders         Order[]
+  reviews        Review[]
+  notifications  Notification[]
 
   @@map("users")
 }
@@ -94,42 +156,85 @@ model Laundry {
   phone_number     String        @unique
   laundry_name     String?
   email            String?       @unique
-  laundry_logo     String?       // Cloudinary URL
+  laundry_logo     String?
   role             Role          @default(LAUNDRY)
   status           AccountStatus @default(PENDING_LOCATION)
   
-  // Location
   latitude         Float?
   longitude        Float?
   near_landmark    String?
   address_text     String?
   city             String?
   
-  // Business Info
-  working_hours    Json?         // { "monday": { "open": "09:00", "close": "18:00" }, ... }
+  working_hours    Json?
   description      String?
   
-  // Statistics
   rating           Float         @default(0)
   total_orders     Int           @default(0)
   total_reviews    Int           @default(0)
   services_count   Int           @default(0)
   
-  // Push Notifications
   fcm_token        String?
-  
-  // Verification
   is_verified      Boolean       @default(false)
   
-  // Timestamps
   created_at       DateTime      @default(now())
   updated_at       DateTime      @updatedAt
   last_login       DateTime?
   
-  // Relations
   refresh_tokens   RefreshToken[]
+  services         LaundryService[]
+  orders           Order[]
+  reviews          Review[]
+  notifications    Notification[]
 
   @@map("laundries")
+}
+
+// ============================================
+// DELIVERY PARTNER TABLE (For Future)
+// ============================================
+
+model DeliveryPartner {
+  id               String                @id @default(uuid())
+  phone_number     String                @unique
+  name             String?
+  email            String?               @unique
+  avatar           String?
+  role             Role                  @default(DELIVERY_PARTNER)
+  status           DeliveryPartnerStatus @default(PENDING_APPROVAL)
+  
+  latitude         Float?
+  longitude        Float?
+  address_text     String?
+  city             String?
+  
+  vehicle_type     String?
+  vehicle_number   String?
+  
+  cnic_number      String?
+  cnic_front_image String?
+  cnic_back_image  String?
+  license_image    String?
+  
+  total_deliveries Int                   @default(0)
+  rating           Float                 @default(0)
+  total_reviews    Int                   @default(0)
+  
+  is_available     Boolean               @default(false)
+  is_online        Boolean               @default(false)
+  
+  fcm_token        String?
+  
+  created_at       DateTime              @default(now())
+  updated_at       DateTime              @updatedAt
+  last_login       DateTime?
+  approved_at      DateTime?
+  
+  refresh_tokens   RefreshToken[]
+  deliveries       DeliveryAssignment[]
+  notifications    Notification[]
+
+  @@map("delivery_partners")
 }
 
 // ============================================
@@ -137,40 +242,453 @@ model Laundry {
 // ============================================
 
 model RefreshToken {
-  id          String    @id @default(uuid())
-  token       String    @unique
+  id                  String           @id @default(uuid())
+  token               String           @unique
   
-  // Polymorphic relation - either user or laundry
-  user_id     String?
-  laundry_id  String?
+  user_id             String?
+  laundry_id          String?
+  delivery_partner_id String?
   
-  user        User?     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  laundry     Laundry?  @relation(fields: [laundry_id], references: [id], onDelete: Cascade)
+  user                User?            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  laundry             Laundry?         @relation(fields: [laundry_id], references: [id], onDelete: Cascade)
+  delivery_partner    DeliveryPartner? @relation(fields: [delivery_partner_id], references: [id], onDelete: Cascade)
   
-  device_info String?   // Device information for multi-device support
-  ip_address  String?
+  device_info         String?
+  ip_address          String?
   
-  expires_at  DateTime
-  created_at  DateTime  @default(now())
-  revoked_at  DateTime?
-  is_revoked  Boolean   @default(false)
+  expires_at          DateTime
+  created_at          DateTime         @default(now())
+  revoked_at          DateTime?
+  is_revoked          Boolean          @default(false)
 
   @@map("refresh_tokens")
 }
 
 // ============================================
-// OTP LOG TABLE (For tracking OTP attempts)
+// OTP LOG TABLE
 // ============================================
 
 model OtpLog {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   phone_number String
   otp_code     String
-  is_verified  Boolean  @default(false)
-  attempts     Int      @default(0)
-  created_at   DateTime @default(now())
+  is_verified  Boolean   @default(false)
+  attempts     Int       @default(0)
+  created_at   DateTime  @default(now())
   expires_at   DateTime
   verified_at  DateTime?
 
   @@map("otp_logs")
+}
+
+// ============================================
+// SERVICE CATEGORY (Master Table - Admin Seeded)
+// ============================================
+
+model ServiceCategory {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  name_urdu   String?
+  icon        String?
+  description String?
+  sort_order  Int              @default(0)
+  is_active   Boolean          @default(true)
+  created_at  DateTime         @default(now())
+  updated_at  DateTime         @updatedAt
+  
+  services    LaundryService[]
+
+  @@map("service_categories")
+}
+
+// ============================================
+// CLOTHING ITEM (Master Table - Admin Seeded)
+// ============================================
+
+model ClothingItem {
+  id           String           @id @default(uuid())
+  name         String
+  name_urdu    String?
+  type         ClothingType
+  icon         String?
+  description  String?
+  sort_order   Int              @default(0)
+  is_active    Boolean          @default(true)
+  created_at   DateTime         @default(now())
+  updated_at   DateTime         @updatedAt
+  
+  pricing      ServicePricing[]
+  order_items  OrderItem[]
+
+  @@unique([name, type])
+  @@map("clothing_items")
+}
+
+// ============================================
+// LAUNDRY SERVICE (What each laundry offers)
+// ============================================
+
+model LaundryService {
+  id              String           @id @default(uuid())
+  laundry_id      String
+  category_id     String
+  
+  name            String
+  description     String?
+  
+  base_price      Float            @default(0)
+  price_unit      PriceUnit        @default(PER_PIECE)
+  
+  estimated_hours Int              @default(24)
+  
+  is_available    Boolean          @default(true)
+  
+  created_at      DateTime         @default(now())
+  updated_at      DateTime         @updatedAt
+  
+  laundry         Laundry          @relation(fields: [laundry_id], references: [id], onDelete: Cascade)
+  category        ServiceCategory  @relation(fields: [category_id], references: [id])
+  pricing         ServicePricing[]
+  order_items     OrderItem[]
+
+  @@unique([laundry_id, category_id, name])
+  @@map("laundry_services")
+}
+
+// ============================================
+// SERVICE PRICING (Price per clothing item)
+// ============================================
+
+model ServicePricing {
+  id                  String         @id @default(uuid())
+  laundry_service_id  String
+  clothing_item_id    String
+  
+  price               Float
+  express_price       Float?
+  price_unit          PriceUnit      @default(PER_PIECE)
+  
+  is_available        Boolean        @default(true)
+  
+  created_at          DateTime       @default(now())
+  updated_at          DateTime       @updatedAt
+  
+  laundry_service     LaundryService @relation(fields: [laundry_service_id], references: [id], onDelete: Cascade)
+  clothing_item       ClothingItem   @relation(fields: [clothing_item_id], references: [id])
+
+  @@unique([laundry_service_id, clothing_item_id])
+  @@map("service_pricing")
+}
+
+// ============================================
+// ORDER TABLE
+// ============================================
+
+model Order {
+  id                     String        @id @default(uuid())
+  order_number           String        @unique
+  
+  customer_id            String
+  laundry_id             String
+  delivery_partner_id    String?
+  
+  status                 OrderStatus   @default(PENDING)
+  order_type             OrderType     @default(STANDARD)
+  
+  pickup_address         String
+  pickup_latitude        Float
+  pickup_longitude       Float
+  pickup_date            DateTime
+  pickup_time_slot       String?
+  pickup_notes           String?
+  
+  delivery_address       String
+  delivery_latitude      Float
+  delivery_longitude     Float
+  expected_delivery_date DateTime?
+  actual_delivery_date   DateTime?
+  delivery_notes         String?
+  
+  subtotal               Float         @default(0)
+  delivery_fee           Float         @default(0)
+  express_fee            Float         @default(0)
+  discount               Float         @default(0)
+  promo_code             String?
+  total_amount           Float         @default(0)
+  
+  total_weight_kg        Float?
+  
+  payment_status         PaymentStatus @default(PENDING)
+  payment_method         PaymentMethod @default(COD)
+  
+  special_instructions   String?
+  
+  cancelled_at           DateTime?
+  cancellation_reason    String?
+  cancelled_by           String?
+  
+  created_at             DateTime      @default(now())
+  updated_at             DateTime      @updatedAt
+  accepted_at            DateTime?
+  picked_up_at           DateTime?
+  processing_started_at  DateTime?
+  ready_at               DateTime?
+  out_for_delivery_at    DateTime?
+  delivered_at           DateTime?
+  completed_at           DateTime?
+  
+  customer               User          @relation(fields: [customer_id], references: [id])
+  laundry                Laundry       @relation(fields: [laundry_id], references: [id])
+  items                  OrderItem[]
+  status_history         OrderStatusHistory[]
+  timeline               OrderTimeline[]
+  payment                Payment?
+  review                 Review?
+  delivery_assignment    DeliveryAssignment?
+
+  @@map("orders")
+}
+
+// ============================================
+// ORDER ITEM TABLE
+// ============================================
+
+model OrderItem {
+  id                  String         @id @default(uuid())
+  order_id            String
+  laundry_service_id  String
+  clothing_item_id    String
+  
+  quantity            Int            @default(1)
+  weight_kg           Float?
+  unit_price          Float
+  price_unit          PriceUnit      @default(PER_PIECE)
+  total_price         Float
+  
+  special_notes       String?
+  
+  created_at          DateTime       @default(now())
+  
+  order               Order          @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  laundry_service     LaundryService @relation(fields: [laundry_service_id], references: [id])
+  clothing_item       ClothingItem   @relation(fields: [clothing_item_id], references: [id])
+
+  @@map("order_items")
+}
+
+// ============================================
+// ORDER STATUS HISTORY
+// ============================================
+
+model OrderStatusHistory {
+  id          String       @id @default(uuid())
+  order_id    String
+  
+  from_status OrderStatus?
+  to_status   OrderStatus
+  changed_by  String?
+  notes       String?
+  
+  created_at  DateTime     @default(now())
+  
+  order       Order        @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  @@map("order_status_history")
+}
+
+// ============================================
+// ORDER TIMELINE (Tracking Events)
+// ============================================
+
+model OrderTimeline {
+  id          String   @id @default(uuid())
+  order_id    String
+  
+  event       String
+  title       String
+  description String?
+  icon        String?
+  
+  metadata    Json?
+  
+  timestamp   DateTime @default(now())
+  
+  order       Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  @@map("order_timeline")
+}
+
+// ============================================
+// DELIVERY ASSIGNMENT (For Future)
+// ============================================
+
+model DeliveryAssignment {
+  id                    String           @id @default(uuid())
+  order_id              String           @unique
+  delivery_partner_id   String
+  
+  assignment_type       String           @default("BOTH")
+  
+  pickup_status         String?
+  pickup_started_at     DateTime?
+  pickup_completed_at   DateTime?
+  pickup_proof_image    String?
+  
+  delivery_status       String?
+  delivery_started_at   DateTime?
+  delivery_completed_at DateTime?
+  delivery_proof_image  String?
+  
+  earnings              Float            @default(0)
+  
+  notes                 String?
+  
+  created_at            DateTime         @default(now())
+  updated_at            DateTime         @updatedAt
+  
+  order                 Order            @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  delivery_partner      DeliveryPartner  @relation(fields: [delivery_partner_id], references: [id])
+
+  @@map("delivery_assignments")
+}
+
+// ============================================
+// PAYMENT TABLE
+// ============================================
+
+model Payment {
+  id              String        @id @default(uuid())
+  order_id        String        @unique
+  
+  amount          Float
+  payment_method  PaymentMethod @default(COD)
+  payment_status  PaymentStatus @default(PENDING)
+  
+  transaction_id  String?
+  
+  paid_at         DateTime?
+  refunded_at     DateTime?
+  refund_reason   String?
+  refund_amount   Float?
+  
+  metadata        Json?
+  
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+  
+  order           Order         @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+// ============================================
+// PROMO CODE TABLE
+// ============================================
+
+model PromoCode {
+  id               String    @id @default(uuid())
+  code             String    @unique
+  
+  discount_type    String    @default("PERCENTAGE")
+  discount_value   Float
+  
+  min_order_amount Float     @default(0)
+  max_discount     Float?
+  
+  valid_from       DateTime  @default(now())
+  valid_until      DateTime
+  
+  usage_limit      Int?
+  used_count       Int       @default(0)
+  
+  first_order_only Boolean   @default(false)
+  specific_users   Json?
+  specific_laundries Json?
+  
+  is_active        Boolean   @default(true)
+  
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  @@map("promo_codes")
+}
+
+// ============================================
+// REVIEW TABLE
+// ============================================
+
+model Review {
+  id               String   @id @default(uuid())
+  order_id         String   @unique
+  customer_id      String
+  laundry_id       String
+  
+  rating           Float
+  comment          String?
+  
+  service_rating   Float?
+  delivery_rating  Float?
+  value_rating     Float?
+  
+  images           Json?
+  
+  laundry_reply    String?
+  replied_at       DateTime?
+  
+  is_visible       Boolean  @default(true)
+  
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  
+  order            Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  customer         User     @relation(fields: [customer_id], references: [id])
+  laundry          Laundry  @relation(fields: [laundry_id], references: [id])
+
+  @@map("reviews")
+}
+
+// ============================================
+// NOTIFICATION TABLE
+// ============================================
+
+model Notification {
+  id                   String           @id @default(uuid())
+  
+  user_id              String?
+  laundry_id           String?
+  delivery_partner_id  String?
+  
+  type                 NotificationType @default(SYSTEM)
+  title                String
+  body                 String
+  
+  data                 Json?
+  image                String?
+  
+  is_read              Boolean          @default(false)
+  read_at              DateTime?
+  
+  sent_at              DateTime?
+  is_sent              Boolean          @default(false)
+  
+  created_at           DateTime         @default(now())
+  
+  user                 User?            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  laundry              Laundry?         @relation(fields: [laundry_id], references: [id], onDelete: Cascade)
+  delivery_partner     DeliveryPartner? @relation(fields: [delivery_partner_id], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// ============================================
+// APP SETTINGS (For Admin Configuration)
+// ============================================
+
+model AppSetting {
+  id         String   @id @default(uuid())
+  key        String   @unique
+  value      Json
+  updated_at DateTime @updatedAt
+
+  @@map("app_settings")
 }
