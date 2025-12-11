@@ -419,11 +419,11 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(accessPayload, {
-      expiresIn: this.configService.get('JWT_ACCESS_EXPIRATION') || '15m',
+      expiresIn: this.configService.get('JWT_ACCESS_EXPIRES_IN') || '15m',
     });
 
     const refreshToken = this.jwtService.sign(refreshPayload, {
-      expiresIn: this.configService.get('JWT_REFRESH_EXPIRATION') || '7d',
+      expiresIn: this.configService.get('JWT_REFRESH_EXPIRES_IN') || '7d',
     });
 
     // Store refresh token
