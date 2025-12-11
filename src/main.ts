@@ -30,7 +30,8 @@ async function bootstrap() {
   // Swagger documentation
   const config = new DocumentBuilder()
     .setTitle('E-Laundry API')
-    .setDescription(`
+    .setDescription(
+      `
 ## E-Laundry Backend API
 
 Complete backend API for the E-Laundry application targeting Pakistani users.
@@ -57,7 +58,8 @@ PENDING → ACCEPTED → PICKUP_SCHEDULED → PICKED_UP → PROCESSING → READY
 - **Per KG**: e.g., Wash = ₨100/kg
 - **Delivery Fee**: ₨100 (free above ₨1000)
 - **Express**: +50% extra
-    `)
+    `,
+    )
     .setVersion('2.0.0')
     .addBearerAuth(
       {
@@ -87,8 +89,8 @@ PENDING → ACCEPTED → PICKUP_SCHEDULED → PICKED_UP → PROCESSING → READY
   SwaggerModule.setup('docs', app, document);
 
   const port = process.env.PORT || 3000;
-  await app.listen(port);
-  
+  await app.listen(port, '0.0.0.0');
+
   console.log(`🚀 E-Laundry API is running on: http://localhost:${port}`);
   console.log(`📚 Swagger docs available at: http://localhost:${port}/docs`);
 }
