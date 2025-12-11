@@ -19,15 +19,15 @@ Complete Next.js 14 backend authentication system for an E-Laundry application t
 
 ## 🛠 Tech Stack
 
-| Technology | Purpose |
-|------------|---------|
-| **Next.js 14** | API Routes (App Router) |
-| **PostgreSQL** | Database |
-| **Prisma** | ORM |
-| **JWT** | Authentication (Access + Refresh tokens) |
-| **Cloudinary** | Image uploads |
-| **Zod** | Validation |
-| **Swagger** | API Documentation |
+| Technology     | Purpose                                  |
+| -------------- | ---------------------------------------- |
+| **Next.js 14** | API Routes (App Router)                  |
+| **PostgreSQL** | Database                                 |
+| **Prisma**     | ORM                                      |
+| **JWT**        | Authentication (Access + Refresh tokens) |
+| **Cloudinary** | Image uploads                            |
+| **Zod**        | Validation                               |
+| **Swagger**    | API Documentation                        |
 
 ---
 
@@ -87,13 +87,13 @@ e-laundry-backend/
 
 ### Tables Overview
 
-| Table | Purpose |
-|-------|---------|
-| `temp_accounts` | Temporary accounts (before role selection) |
-| `users` | Customer accounts |
-| `laundries` | Laundry service provider accounts |
-| `refresh_tokens` | JWT refresh token management |
-| `otp_logs` | OTP attempt tracking |
+| Table            | Purpose                                    |
+| ---------------- | ------------------------------------------ |
+| `temp_accounts`  | Temporary accounts (before role selection) |
+| `users`          | Customer accounts                          |
+| `laundries`      | Laundry service provider accounts          |
+| `refresh_tokens` | JWT refresh token management               |
+| `otp_logs`       | OTP attempt tracking                       |
 
 ### User Table (Customers)
 
@@ -195,34 +195,34 @@ model Laundry {
 
 ### Authentication
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/api/auth/send-otp` | Send OTP to phone | ❌ |
-| POST | `/api/auth/verify-otp` | Verify OTP | ❌ |
-| POST | `/api/auth/select-role` | Select CUSTOMER/LAUNDRY | ❌ |
-| POST | `/api/auth/update-location` | Update location | ✅ |
-| POST | `/api/auth/refresh-token` | Refresh tokens | ❌ |
-| POST | `/api/auth/logout` | Logout | ✅ |
+| Method | Endpoint                    | Description             | Auth |
+| ------ | --------------------------- | ----------------------- | ---- |
+| POST   | `/api/auth/send-otp`        | Send OTP to phone       | ❌   |
+| POST   | `/api/auth/verify-otp`      | Verify OTP              | ❌   |
+| POST   | `/api/auth/select-role`     | Select CUSTOMER/LAUNDRY | ❌   |
+| POST   | `/api/auth/update-location` | Update location         | ✅   |
+| POST   | `/api/auth/refresh-token`   | Refresh tokens          | ❌   |
+| POST   | `/api/auth/logout`          | Logout                  | ✅   |
 
 ### Profile
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/auth/me` | Get current user | ✅ |
-| PUT | `/api/auth/update-profile` | Update profile | ✅ |
+| Method | Endpoint                   | Description      | Auth |
+| ------ | -------------------------- | ---------------- | ---- |
+| GET    | `/api/auth/me`             | Get current user | ✅   |
+| PUT    | `/api/auth/update-profile` | Update profile   | ✅   |
 
 ### Upload
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/api/upload/image` | Upload avatar/logo | ✅ |
+| Method | Endpoint            | Description        | Auth |
+| ------ | ------------------- | ------------------ | ---- |
+| POST   | `/api/upload/image` | Upload avatar/logo | ✅   |
 
 ### Documentation
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/docs` | Swagger JSON |
-| GET | `/api-docs` | Swagger UI |
+| Method | Endpoint    | Description  |
+| ------ | ----------- | ------------ |
+| GET    | `/api/docs` | Swagger JSON |
+| GET    | `/api-docs` | Swagger UI   |
 
 ---
 
@@ -318,6 +318,7 @@ curl -X POST http://localhost:3000/api/auth/send-otp \
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -339,6 +340,7 @@ curl -X POST http://localhost:3000/api/auth/verify-otp \
 ```
 
 **Response (New User):**
+
 ```json
 {
   "success": true,
@@ -360,6 +362,7 @@ curl -X POST http://localhost:3000/api/auth/select-role \
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -419,6 +422,7 @@ curl -X POST http://localhost:3000/api/auth/refresh-token \
 ## 🔐 JWT Token Structure
 
 ### Access Token Payload
+
 ```json
 {
   "id": "uuid",
@@ -433,6 +437,7 @@ curl -X POST http://localhost:3000/api/auth/refresh-token \
 ```
 
 ### Refresh Token Payload
+
 ```json
 {
   "id": "uuid",
@@ -452,6 +457,7 @@ curl -X POST http://localhost:3000/api/auth/refresh-token \
 ## 📱 Flutter Integration
 
 ### Token Storage
+
 Store tokens securely using `flutter_secure_storage`:
 
 ```dart
@@ -461,6 +467,7 @@ await storage.write(key: 'refresh_token', value: refreshToken);
 ```
 
 ### API Calls
+
 Add Authorization header to all protected requests:
 
 ```dart
@@ -474,6 +481,7 @@ final response = await http.get(
 ```
 
 ### Token Refresh
+
 Implement automatic token refresh on 401 errors:
 
 ```dart
@@ -508,3 +516,173 @@ MIT License
 ## 👨‍💻 Author
 
 E-Laundry Pakistan Team
+
+# E-Laundry Backend - Phase 2 Update
+
+## 📦 What's Included
+
+This update adds the following features to your E-Laundry backend:
+
+### New Database Tables
+
+- `ServiceCategory` - Master service types (Washing, Ironing, etc.)
+- `ClothingItem` - Clothing types by category (MEN/WOMEN/KIDS/HOME)
+- `LaundryService` - Services offered by each laundry
+- `ServicePricing` - Price per clothing item per service
+- `Order` - Main order table with full lifecycle
+- `OrderItem` - Individual items in order
+- `OrderStatusHistory` - Tracks all status changes
+- `OrderTimeline` - Customer-facing tracking events
+- `DeliveryAssignment` - For future delivery partner feature
+- `Payment` - Payment records (COD support)
+- `PromoCode` - Discount codes
+- `Review` - Customer reviews with ratings
+- `Notification` - Push notifications
+- `AppSetting` - Admin configuration
+- `DeliveryPartner` - Delivery partner accounts (future)
+
+### New API Endpoints
+
+#### Categories & Items
+
+- `GET /api/categories` - List service categories
+- `GET /api/clothing-items` - List clothing items (filter by type)
+
+#### Laundry Services Management
+
+- `GET /api/laundry/services` - Get my services
+- `POST /api/laundry/services` - Add new service
+- `GET/PUT/DELETE /api/laundry/services/:id` - Manage service
+- `GET/POST /api/laundry/services/:id/pricing` - Manage pricing
+
+#### Search & Discovery
+
+- `GET /api/search/laundries` - Search nearby laundries
+- `GET /api/laundries/:id` - Get laundry details
+- `GET /api/laundries/:id/services` - View laundry services
+- `GET /api/laundries/:id/reviews` - View laundry reviews
+
+#### Orders (Customer)
+
+- `GET /api/orders` - List my orders
+- `POST /api/orders` - Place new order
+- `GET /api/orders/:id` - Order details
+- `POST /api/orders/:id/cancel` - Cancel order
+- `GET /api/orders/:id/timeline` - Order tracking
+- `POST /api/orders/:id/review` - Submit review
+
+#### Orders (Laundry)
+
+- `GET /api/laundry/orders` - List incoming orders
+- `GET /api/laundry/orders/:id` - Order details
+- `PUT /api/laundry/orders/:id` - Update order status
+
+#### Dashboard
+
+- `GET /api/customer/dashboard` - Customer stats
+- `GET /api/laundry/dashboard` - Laundry stats
+
+#### Reviews
+
+- `GET /api/laundry/reviews` - My reviews
+- `POST /api/laundry/reviews/:id` - Reply to review
+
+#### Promo & Notifications
+
+- `POST /api/promo/validate` - Validate promo code
+- `GET /api/notifications` - List notifications
+- `POST /api/notifications` - Mark as read
+- `POST /api/notifications/:id` - Mark single as read
+
+---
+
+## 🚀 Installation Steps
+
+### 1. Extract Files
+
+Extract this ZIP into your project folder `C:\Personal\e-laundry-backend`
+
+**Files to REPLACE:**
+
+- `prisma/schema.prisma`
+- `src/types/index.ts`
+
+**Files to ADD (new):**
+
+- `prisma/seed.ts`
+- `src/lib/order-utils.ts`
+- `src/lib/notification-utils.ts`
+- All files in `src/app/api/` subfolders
+
+### 2. Update package.json
+
+Add seed script to your `package.json`:
+
+```json
+{
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  }
+}
+```
+
+### 3. Run Database Migration
+
+```bash
+npx prisma migrate dev --name add_services_orders_flow
+```
+
+### 4. Seed Database
+
+```bash
+npx prisma db seed
+```
+
+### 5. Restart Server
+
+```bash
+npm run dev
+```
+
+---
+
+## 📋 Order Status Flow
+
+```
+PENDING → ACCEPTED → PICKUP_SCHEDULED → PICKED_UP → PROCESSING → READY → OUT_FOR_DELIVERY → DELIVERED → COMPLETED
+                ↓
+            REJECTED
+
+PENDING/ACCEPTED/PICKUP_SCHEDULED/PICKED_UP → CANCELLED (before PROCESSING only)
+```
+
+---
+
+## 💰 Pricing Model
+
+- **Per Piece**: Shirt = ₨50
+- **Per KG**: Wash = ₨100/kg
+- **Delivery Fee**: ₨100 (free above ₨1000)
+- **Express**: +50% extra
+
+---
+
+## 🎟️ Default Promo Codes
+
+| Code      | Discount       | Min Order | Notes            |
+| --------- | -------------- | --------- | ---------------- |
+| WELCOME50 | 50% (max ₨200) | ₨300      | First order only |
+| FLAT100   | ₨100 off       | ₨500      | -                |
+| LAUNCH20  | 20% (max ₨150) | ₨200      | -                |
+
+---
+
+## ✅ Seeded Data
+
+- **8** Service Categories
+- **19** Men's clothing items
+- **23** Women's clothing items
+- **14** Kids' clothing items
+- **21** Home items
+- **6** App Settings
+- **3** Promo Codes
