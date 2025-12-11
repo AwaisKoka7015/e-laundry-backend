@@ -1,0 +1,176 @@
+// Prisma Schema for E-Laundry App
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum Role {
+  CUSTOMER
+  LAUNDRY
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum AccountStatus {
+  PENDING_ROLE      // Just registered, no role selected
+  PENDING_LOCATION  // Role selected, location pending
+  ACTIVE            // Fully registered
+  SUSPENDED
+  DELETED
+}
+
+// ============================================
+// TEMPORARY ACCOUNT (Before role selection)
+// ============================================
+
+model TempAccount {
+  id           String   @id @default(uuid())
+  phone_number String   @unique
+  otp_code     String   @default("0000") // Constant for now
+  otp_verified Boolean  @default(false)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  expires_at   DateTime // OTP expiry
+
+  @@map("temp_accounts")
+}
+
+// ============================================
+// USER TABLE (Customers)
+// ============================================
+
+model User {
+  id             String        @id @default(uuid())
+  phone_number   String        @unique
+  name           String?
+  email          String?       @unique
+  avatar         String?       // Cloudinary URL
+  gender         Gender?
+  role           Role          @default(CUSTOMER)
+  status         AccountStatus @default(PENDING_LOCATION)
+  
+  // Location
+  latitude       Float?
+  longitude      Float?
+  near_landmark  String?       // Optional, filled from settings
+  address_text   String?       // Manual address (optional)
+  city           String?
+  
+  // Push Notifications
+  fcm_token      String?
+  
+  // Timestamps
+  created_at     DateTime      @default(now())
+  updated_at     DateTime      @updatedAt
+  last_login     DateTime?
+  
+  // Relations
+  refresh_tokens RefreshToken[]
+
+  @@map("users")
+}
+
+// ============================================
+// LAUNDRY TABLE (Laundry Service Providers)
+// ============================================
+
+model Laundry {
+  id               String        @id @default(uuid())
+  phone_number     String        @unique
+  laundry_name     String?
+  email            String?       @unique
+  laundry_logo     String?       // Cloudinary URL
+  role             Role          @default(LAUNDRY)
+  status           AccountStatus @default(PENDING_LOCATION)
+  
+  // Location
+  latitude         Float?
+  longitude        Float?
+  near_landmark    String?
+  address_text     String?
+  city             String?
+  
+  // Business Info
+  working_hours    Json?         // { "monday": { "open": "09:00", "close": "18:00" }, ... }
+  description      String?
+  
+  // Statistics
+  rating           Float         @default(0)
+  total_orders     Int           @default(0)
+  total_reviews    Int           @default(0)
+  services_count   Int           @default(0)
+  
+  // Push Notifications
+  fcm_token        String?
+  
+  // Verification
+  is_verified      Boolean       @default(false)
+  
+  // Timestamps
+  created_at       DateTime      @default(now())
+  updated_at       DateTime      @updatedAt
+  last_login       DateTime?
+  
+  // Relations
+  refresh_tokens   RefreshToken[]
+
+  @@map("laundries")
+}
+
+// ============================================
+// REFRESH TOKEN TABLE
+// ============================================
+
+model RefreshToken {
+  id          String    @id @default(uuid())
+  token       String    @unique
+  
+  // Polymorphic relation - either user or laundry
+  user_id     String?
+  laundry_id  String?
+  
+  user        User?     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  laundry     Laundry?  @relation(fields: [laundry_id], references: [id], onDelete: Cascade)
+  
+  device_info String?   // Device information for multi-device support
+  ip_address  String?
+  
+  expires_at  DateTime
+  created_at  DateTime  @default(now())
+  revoked_at  DateTime?
+  is_revoked  Boolean   @default(false)
+
+  @@map("refresh_tokens")
+}
+
+// ============================================
+// OTP LOG TABLE (For tracking OTP attempts)
+// ============================================
+
+model OtpLog {
+  id           String   @id @default(uuid())
+  phone_number String
+  otp_code     String
+  is_verified  Boolean  @default(false)
+  attempts     Int      @default(0)
+  created_at   DateTime @default(now())
+  expires_at   DateTime
+  verified_at  DateTime?
+
+  @@map("otp_logs")
+}

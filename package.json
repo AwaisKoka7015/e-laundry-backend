@@ -1,0 +1,40 @@
+{
+  "name": "e-laundry-backend",
+  "version": "1.0.0",
+  "description": "E-Laundry Backend API for Pakistani Users",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "postinstall": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "db:seed": "ts-node prisma/seed.ts"
+  },
+  "dependencies": {
+    "next": "14.2.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@prisma/client": "^5.14.0",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.2.0",
+    "swagger-ui-react": "^5.17.14",
+    "zod": "^3.23.8",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "@types/react": "^18.3.2",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/uuid": "^9.0.8",
+    "@types/swagger-ui-react": "^4.18.3",
+    "typescript": "^5.4.5",
+    "prisma": "^5.14.0",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.3"
+  }
+}
