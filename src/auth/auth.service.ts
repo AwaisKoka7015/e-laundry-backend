@@ -7,10 +7,13 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { UploadService } from '../upload/upload.service';
 import {
   SendOtpDto,
   VerifyOtpDto,
   SelectRoleDto,
+  RegisterCustomerDto,
+  RegisterLaundryDto,
   UpdateLocationDto,
   RefreshTokenDto,
   LogoutDto,
@@ -26,6 +29,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private uploadService: UploadService,
   ) {}
 
   // ==================== SEND OTP ====================
@@ -172,9 +176,189 @@ export class AuthService {
     };
   }
 
-  // ==================== SELECT ROLE ====================
+  // ==================== REGISTER CUSTOMER ====================
+  async registerCustomer(dto: RegisterCustomerDto) {
+    const { temp_token, name, email } = dto;
+
+    // Verify temp token and extract phone_number
+    let phone_number: string;
+    try {
+      const payload = this.jwtService.verify(temp_token);
+      if (payload.type !== 'temp' || !payload.phone_number) {
+        throw new UnauthorizedException('Invalid temp token');
+      }
+      phone_number = payload.phone_number;
+    } catch {
+      throw new UnauthorizedException('Invalid or expired temp token');
+    }
+
+    // Check if OTP was verified
+    const tempAccount = await this.prisma.tempAccount.findFirst({
+      where: {
+        phone_number,
+        otp_verified: true,
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    if (!tempAccount) {
+      throw new BadRequestException({
+        message: 'Please verify OTP first',
+        code: 'OTP_NOT_VERIFIED',
+      });
+    }
+
+    // Check if already registered
+    const existingUser = await this.prisma.user.findUnique({
+      where: { phone_number },
+    });
+    const existingLaundry = await this.prisma.laundry.findUnique({
+      where: { phone_number },
+    });
+
+    if (existingUser || existingLaundry) {
+      throw new ConflictException({
+        message: 'Account already exists with this phone number',
+        code: 'ACCOUNT_EXISTS',
+      });
+    }
+
+    // Check email uniqueness if provided
+    if (email) {
+      const emailExists = await this.prisma.user.findUnique({
+        where: { email },
+      });
+      if (emailExists) {
+        throw new ConflictException({
+          message: 'Email already in use',
+          code: 'EMAIL_EXISTS',
+        });
+      }
+    }
+
+    // Create customer
+    const customer = await this.prisma.user.create({
+      data: {
+        phone_number,
+        name,
+        email,
+        status: 'PENDING_LOCATION',
+      },
+    });
+
+    // Clean up temp account
+    await this.prisma.tempAccount.deleteMany({
+      where: { phone_number },
+    });
+
+    return {
+      user: this.sanitizeUser(customer),
+      requires_location: true,
+    };
+  }
+
+  // ==================== REGISTER LAUNDRY ====================
+  async registerLaundry(dto: RegisterLaundryDto, files: Express.Multer.File[]) {
+    const { temp_token, laundry_name, email } = dto;
+
+    // Verify temp token and extract phone_number
+    let phone_number: string;
+    try {
+      const payload = this.jwtService.verify(temp_token);
+      if (payload.type !== 'temp' || !payload.phone_number) {
+        throw new UnauthorizedException('Invalid temp token');
+      }
+      phone_number = payload.phone_number;
+    } catch {
+      throw new UnauthorizedException('Invalid or expired temp token');
+    }
+
+    // Check if OTP was verified
+    const tempAccount = await this.prisma.tempAccount.findFirst({
+      where: {
+        phone_number,
+        otp_verified: true,
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    if (!tempAccount) {
+      throw new BadRequestException({
+        message: 'Please verify OTP first',
+        code: 'OTP_NOT_VERIFIED',
+      });
+    }
+
+    // Check if already registered
+    const existingUser = await this.prisma.user.findUnique({
+      where: { phone_number },
+    });
+    const existingLaundry = await this.prisma.laundry.findUnique({
+      where: { phone_number },
+    });
+
+    if (existingUser || existingLaundry) {
+      throw new ConflictException({
+        message: 'Account already exists with this phone number',
+        code: 'ACCOUNT_EXISTS',
+      });
+    }
+
+    // Check email uniqueness if provided
+    if (email) {
+      const emailExists = await this.prisma.laundry.findUnique({
+        where: { email },
+      });
+      if (emailExists) {
+        throw new ConflictException({
+          message: 'Email already in use',
+          code: 'EMAIL_EXISTS',
+        });
+      }
+    }
+
+    // Upload shop images to Cloudinary
+    const shopImageUrls: string[] = [];
+    for (const file of files) {
+      // Convert file buffer to base64
+      const base64Image = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+      const uploadResult = await this.uploadService.uploadToFolder('shop_images', base64Image);
+      shopImageUrls.push(uploadResult.url);
+    }
+
+    // Create laundry
+    const laundry = await this.prisma.laundry.create({
+      data: {
+        phone_number,
+        laundry_name,
+        email,
+        shop_images: shopImageUrls,
+        status: 'PENDING_LOCATION',
+      },
+    });
+
+    // Clean up temp account
+    await this.prisma.tempAccount.deleteMany({
+      where: { phone_number },
+    });
+
+    return {
+      user: this.sanitizeLaundry(laundry),
+      requires_location: true,
+    };
+  }
+
+  // ==================== SELECT ROLE (LEGACY) ====================
   async selectRole(dto: SelectRoleDto) {
-    const { phone_number, role, temp_token } = dto;
+    const {
+      phone_number,
+      role,
+      temp_token,
+      name,
+      laundry_name,
+      shop_images,
+      email,
+    } = dto;
 
     // Verify temp token if provided
     if (temp_token) {
@@ -219,19 +403,42 @@ export class AuthService {
       });
     }
 
+    // Check email uniqueness if provided
+    if (email) {
+      const emailExistsUser = await this.prisma.user.findUnique({
+        where: { email },
+      });
+      const emailExistsLaundry = await this.prisma.laundry.findUnique({
+        where: { email },
+      });
+      if (emailExistsUser || emailExistsLaundry) {
+        throw new ConflictException({
+          message: 'Email already in use',
+          code: 'EMAIL_EXISTS',
+        });
+      }
+    }
+
     let newAccount: any;
 
     if (role === UserRole.CUSTOMER) {
+      // Create customer with name and optional email
       newAccount = await this.prisma.user.create({
         data: {
           phone_number,
+          name,
+          email,
           status: 'PENDING_LOCATION',
         },
       });
     } else {
+      // Create laundry with laundry_name, shop_images, and optional email
       newAccount = await this.prisma.laundry.create({
         data: {
           phone_number,
+          laundry_name,
+          email,
+          shop_images: shop_images || [],
           status: 'PENDING_LOCATION',
         },
       });
@@ -243,9 +450,10 @@ export class AuthService {
     });
 
     return {
-      user: role === UserRole.CUSTOMER
-        ? this.sanitizeUser(newAccount)
-        : this.sanitizeLaundry(newAccount),
+      user:
+        role === UserRole.CUSTOMER
+          ? this.sanitizeUser(newAccount)
+          : this.sanitizeLaundry(newAccount),
       requires_location: true,
     };
   }
