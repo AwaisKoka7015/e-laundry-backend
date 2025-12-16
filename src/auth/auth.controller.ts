@@ -6,18 +6,26 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
+  UploadedFiles,
+  BadRequestException,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import {
   SendOtpDto,
   VerifyOtpDto,
   SelectRoleDto,
+  RegisterCustomerDto,
+  RegisterLaundryDto,
   UpdateLocationDto,
   RefreshTokenDto,
   LogoutDto,
@@ -59,9 +67,66 @@ export class AuthController {
     };
   }
 
+  // ===== NEW SEPARATE REGISTRATION ENDPOINTS =====
+
+  @Post('register/customer')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Register as a customer' })
+  @ApiResponse({ status: 201, description: 'Customer registered successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid request' })
+  @ApiResponse({ status: 409, description: 'Account already exists' })
+  async registerCustomer(@Body() dto: RegisterCustomerDto) {
+    const data = await this.authService.registerCustomer(dto);
+    return {
+      success: true,
+      message: 'Customer registered successfully',
+      data,
+    };
+  }
+
+  @Post('register/laundry')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FilesInterceptor('shop_images', 10)) // Max 10 images
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Register as a laundry (with shop images)' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['temp_token', 'laundry_name', 'shop_images'],
+      properties: {
+        temp_token: { type: 'string', description: 'Temporary token from verify-otp (contains phone_number)' },
+        laundry_name: { type: 'string', example: 'Clean & Fresh Laundry' },
+        email: { type: 'string', example: 'shop@example.com' },
+        shop_images: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+          description: 'Shop images (at least 1 required, max 10)',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Laundry registered successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid request or missing images' })
+  @ApiResponse({ status: 409, description: 'Account already exists' })
+  async registerLaundry(
+    @Body() dto: RegisterLaundryDto,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('At least one shop image is required');
+    }
+    const data = await this.authService.registerLaundry(dto, files);
+    return {
+      success: true,
+      message: 'Laundry registered successfully',
+      data,
+    };
+  }
+
+  // ===== LEGACY ENDPOINT (for backward compatibility) =====
   @Post('select-role')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Select user role (CUSTOMER or LAUNDRY)' })
+  @ApiOperation({ summary: '[DEPRECATED] Select user role - Use /register/customer or /register/laundry instead' })
   @ApiResponse({ status: 200, description: 'Role selected successfully' })
   @ApiResponse({ status: 400, description: 'Invalid request' })
   @ApiResponse({ status: 409, description: 'Account already exists' })

@@ -9,6 +9,8 @@ import {
   Min,
   Max,
   Matches,
+  IsEmail,
+  IsArray,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -65,6 +67,44 @@ export enum UserRole {
   LAUNDRY = 'LAUNDRY',
 }
 
+// ===== CUSTOMER REGISTRATION DTO =====
+export class RegisterCustomerDto {
+  @ApiProperty({ description: 'Temporary token from verify-otp (contains phone_number)' })
+  @IsString()
+  @IsNotEmpty({ message: 'Temp token is required' })
+  temp_token: string;
+
+  @ApiProperty({ example: 'John Doe', description: 'Customer full name' })
+  @IsString()
+  @IsNotEmpty({ message: 'Name is required' })
+  name: string;
+
+  @ApiPropertyOptional({ example: 'user@example.com' })
+  @IsOptional()
+  @IsEmail({}, { message: 'Invalid email format' })
+  email?: string;
+}
+
+// ===== LAUNDRY REGISTRATION DTO =====
+// Note: shop_images will be handled as file uploads in the controller
+export class RegisterLaundryDto {
+  @ApiProperty({ description: 'Temporary token from verify-otp (contains phone_number)' })
+  @IsString()
+  @IsNotEmpty({ message: 'Temp token is required' })
+  temp_token: string;
+
+  @ApiProperty({ example: 'Clean & Fresh Laundry', description: 'Laundry/Shop name' })
+  @IsString()
+  @IsNotEmpty({ message: 'Laundry name is required' })
+  laundry_name: string;
+
+  @ApiPropertyOptional({ example: 'shop@example.com' })
+  @IsOptional()
+  @IsEmail({}, { message: 'Invalid email format' })
+  email?: string;
+}
+
+// ===== LEGACY - Keep for backward compatibility =====
 export class SelectRoleDto {
   @ApiProperty({ example: '+923001234567' })
   @IsString()
@@ -83,6 +123,26 @@ export class SelectRoleDto {
   @IsOptional()
   @IsString()
   temp_token?: string;
+
+  @ApiPropertyOptional({ example: 'John Doe' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ example: 'Clean & Fresh Laundry' })
+  @IsOptional()
+  @IsString()
+  laundry_name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  shop_images?: string[];
+
+  @ApiPropertyOptional({ example: 'user@example.com' })
+  @IsOptional()
+  @IsEmail({}, { message: 'Invalid email format' })
+  email?: string;
 }
 
 export class UpdateLocationDto {

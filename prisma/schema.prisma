@@ -157,15 +157,16 @@ model Laundry {
   laundry_name     String?
   email            String?       @unique
   laundry_logo     String?
+  shop_images      Json?         // Array of shop image URLs
   role             Role          @default(LAUNDRY)
   status           AccountStatus @default(PENDING_LOCATION)
-  
+
   latitude         Float?
   longitude        Float?
   near_landmark    String?
   address_text     String?
   city             String?
-  
+
   working_hours    Json?
   description      String?
   

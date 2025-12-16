@@ -3,6 +3,21 @@ import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
 import { PrismaService } from '../prisma/prisma.service';
 
+export type UploadFolder =
+  | 'avatars'
+  | 'laundry_logos'
+  | 'shop_images'
+  | 'reviews'
+  | 'cnic'
+  | 'general';
+
+export interface UploadOptions {
+  width?: number;
+  height?: number;
+  crop?: string;
+  gravity?: string;
+}
+
 @Injectable()
 export class UploadService {
   constructor(
@@ -16,55 +31,89 @@ export class UploadService {
     });
   }
 
+  // ===== GENERIC UPLOAD METHOD =====
+  async uploadToFolder(
+    folderName: UploadFolder,
+    image: string,
+    options?: UploadOptions,
+  ): Promise<{ url: string; public_id: string }> {
+    // Validate image
+    if (!image.startsWith('data:image/')) {
+      throw new BadRequestException(
+        'Invalid image format. Must be base64 encoded.',
+      );
+    }
+
+    // Default transformations based on folder
+    const defaultOptions = this.getDefaultOptions(folderName);
+    const transformation = [{ ...defaultOptions, ...options }];
+
+    try {
+      const result = await cloudinary.uploader.upload(image, {
+        folder: `e-laundry/${folderName}`,
+        transformation,
+        resource_type: 'image',
+      });
+
+      return {
+        url: result.secure_url,
+        public_id: result.public_id,
+      };
+    } catch (error) {
+      console.error('Cloudinary upload error:', error);
+      throw new BadRequestException('Failed to upload image');
+    }
+  }
+
+  // ===== BULK UPLOAD METHOD =====
+  async uploadMultipleToFolder(
+    folderName: UploadFolder,
+    images: string[],
+    options?: UploadOptions,
+  ): Promise<{ urls: string[]; public_ids: string[] }> {
+    const results = await Promise.all(
+      images.map((image) => this.uploadToFolder(folderName, image, options)),
+    );
+
+    return {
+      urls: results.map((r) => r.url),
+      public_ids: results.map((r) => r.public_id),
+    };
+  }
+
+  // ===== LEGACY METHOD (for backward compatibility) =====
   async uploadImage(
     userId: string,
     role: string,
     image: string,
     type: 'avatar' | 'laundry_logo' | 'review',
   ) {
-    // Validate image
-    if (!image.startsWith('data:image/')) {
-      throw new BadRequestException('Invalid image format. Must be base64 encoded.');
-    }
+    const folderMap: Record<string, UploadFolder> = {
+      avatar: 'avatars',
+      laundry_logo: 'laundry_logos',
+      review: 'reviews',
+    };
 
-    // Configure upload options based on type
-    const folder = `e-laundry/${type}s`;
-    const transformation = type === 'review' 
-      ? [{ width: 800, height: 800, crop: 'limit' }]
-      : [{ width: 400, height: 400, crop: 'fill', gravity: 'face' }];
+    const result = await this.uploadToFolder(folderMap[type], image);
 
-    try {
-      // Upload to Cloudinary
-      const result = await cloudinary.uploader.upload(image, {
-        folder,
-        transformation,
-        resource_type: 'image',
+    // Update user/laundry profile if it's avatar or logo
+    if (type === 'avatar' && role === 'CUSTOMER') {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { avatar: result.url },
       });
-
-      const imageUrl = result.secure_url;
-
-      // Update user/laundry profile if it's avatar or logo
-      if (type === 'avatar' && role === 'CUSTOMER') {
-        await this.prisma.user.update({
-          where: { id: userId },
-          data: { avatar: imageUrl },
-        });
-      } else if (type === 'laundry_logo' && role === 'LAUNDRY') {
-        await this.prisma.laundry.update({
-          where: { id: userId },
-          data: { laundry_logo: imageUrl },
-        });
-      }
-
-      return {
-        url: imageUrl,
-        public_id: result.public_id,
-        type,
-      };
-    } catch (error) {
-      console.error('Cloudinary upload error:', error);
-      throw new BadRequestException('Failed to upload image');
+    } else if (type === 'laundry_logo' && role === 'LAUNDRY') {
+      await this.prisma.laundry.update({
+        where: { id: userId },
+        data: { laundry_logo: result.url },
+      });
     }
+
+    return {
+      url: result.url,
+      public_id: result.public_id,
+      type,
+    };
   }
 
   async deleteImage(publicId: string) {
@@ -75,5 +124,28 @@ export class UploadService {
       console.error('Cloudinary delete error:', error);
       throw new BadRequestException('Failed to delete image');
     }
+  }
+
+  async deleteMultipleImages(publicIds: string[]) {
+    try {
+      await cloudinary.api.delete_resources(publicIds);
+      return { success: true, deleted: publicIds.length };
+    } catch (error) {
+      console.error('Cloudinary bulk delete error:', error);
+      throw new BadRequestException('Failed to delete images');
+    }
+  }
+
+  private getDefaultOptions(folderName: UploadFolder): UploadOptions {
+    const defaults: Record<UploadFolder, UploadOptions> = {
+      avatars: { width: 400, height: 400, crop: 'fill', gravity: 'face' },
+      laundry_logos: { width: 400, height: 400, crop: 'fill' },
+      shop_images: { width: 800, height: 600, crop: 'limit' },
+      reviews: { width: 800, height: 800, crop: 'limit' },
+      cnic: { width: 1200, height: 800, crop: 'limit' },
+      general: { width: 1000, height: 1000, crop: 'limit' },
+    };
+
+    return defaults[folderName] || defaults.general;
   }
 }
