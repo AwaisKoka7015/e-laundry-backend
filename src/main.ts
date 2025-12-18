@@ -93,7 +93,7 @@ PENDING → ACCEPTED → PICKUP_SCHEDULED → PICKED_UP → PROCESSING → READY
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
 
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT || 8000;
   await app.listen(port, '0.0.0.0');
 
   console.log(`🚀API is running on: http://localhost:${port}`);

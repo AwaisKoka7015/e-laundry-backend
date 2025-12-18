@@ -29,6 +29,7 @@ import {
   UpdateLocationDto,
   RefreshTokenDto,
   LogoutDto,
+  FirebaseAuthDto,
 } from './dto';
 import { JwtAuthGuard } from './guards';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators';
@@ -55,7 +56,7 @@ export class AuthController {
 
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify OTP and create/login account' })
+  @ApiOperation({ summary: '[DEV ONLY] Verify OTP and create/login account' })
   @ApiResponse({ status: 200, description: 'OTP verified successfully' })
   @ApiResponse({ status: 400, description: 'Invalid OTP' })
   async verifyOtp(@Body() dto: VerifyOtpDto) {
@@ -67,7 +68,49 @@ export class AuthController {
     };
   }
 
-  // ===== NEW SEPARATE REGISTRATION ENDPOINTS =====
+  // ===== FIREBASE AUTH (PRODUCTION) =====
+
+  @Post('firebase')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '[PRODUCTION] Authenticate with Firebase phone verification',
+    description: `
+      Use this endpoint in production. The mobile app should:
+      1. Use Firebase Phone Auth to verify the user's phone number
+      2. Get the Firebase ID token after successful verification
+      3. Send the ID token to this endpoint
+      4. Receive either JWT tokens (existing user) or temp_token (new user)
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Authentication successful',
+    schema: {
+      example: {
+        success: true,
+        message: 'Authentication successful',
+        data: {
+          is_new_user: false,
+          requires_role_selection: false,
+          requires_location: false,
+          access_token: 'eyJ...',
+          refresh_token: 'eyJ...',
+          user: { id: '...', phone_number: '+923001234567', role: 'CUSTOMER' },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Invalid or expired Firebase token' })
+  async firebaseAuth(@Body() dto: FirebaseAuthDto) {
+    const data = await this.authService.firebaseAuth(dto);
+    return {
+      success: true,
+      message: data.is_new_user ? 'Please complete registration' : 'Authentication successful',
+      data,
+    };
+  }
+
+  // ===== REGISTRATION ENDPOINTS =====
 
   @Post('register/customer')
   @HttpCode(HttpStatus.CREATED)
@@ -94,7 +137,10 @@ export class AuthController {
       type: 'object',
       required: ['temp_token', 'laundry_name', 'shop_images'],
       properties: {
-        temp_token: { type: 'string', description: 'Temporary token from verify-otp (contains phone_number)' },
+        temp_token: {
+          type: 'string',
+          description: 'Temporary token from verify-otp (contains phone_number)',
+        },
         laundry_name: { type: 'string', example: 'Clean & Fresh Laundry' },
         email: { type: 'string', example: 'shop@example.com' },
         shop_images: {
@@ -126,7 +172,9 @@ export class AuthController {
   // ===== LEGACY ENDPOINT (for backward compatibility) =====
   @Post('select-role')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '[DEPRECATED] Select user role - Use /register/customer or /register/laundry instead' })
+  @ApiOperation({
+    summary: '[DEPRECATED] Select user role - Use /register/customer or /register/laundry instead',
+  })
   @ApiResponse({ status: 200, description: 'Role selected successfully' })
   @ApiResponse({ status: 400, description: 'Invalid request' })
   @ApiResponse({ status: 409, description: 'Account already exists' })
@@ -146,10 +194,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Update user location' })
   @ApiResponse({ status: 200, description: 'Location updated successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async updateLocation(
-    @CurrentUser() user: CurrentUserPayload,
-    @Body() dto: UpdateLocationDto,
-  ) {
+  async updateLocation(@CurrentUser() user: CurrentUserPayload, @Body() dto: UpdateLocationDto) {
     const data = await this.authService.updateLocation(user.sub, user.role, dto);
     return {
       success: true,
@@ -178,10 +223,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Logout user' })
   @ApiResponse({ status: 200, description: 'Logged out successfully' })
-  async logout(
-    @CurrentUser() user: CurrentUserPayload,
-    @Body() dto: LogoutDto,
-  ) {
+  async logout(@CurrentUser() user: CurrentUserPayload, @Body() dto: LogoutDto) {
     const data = await this.authService.logout(user.sub, user.role, dto);
     return {
       success: true,

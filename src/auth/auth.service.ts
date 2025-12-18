@@ -3,11 +3,13 @@ import {
   BadRequestException,
   UnauthorizedException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { UploadService } from '../upload/upload.service';
+import { FirebaseService } from '../firebase/firebase.service';
 import {
   SendOtpDto,
   VerifyOtpDto,
@@ -17,11 +19,13 @@ import {
   UpdateLocationDto,
   RefreshTokenDto,
   LogoutDto,
+  FirebaseAuthDto,
   UserRole,
 } from './dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly DEV_OTP = '0000';
   private readonly OTP_EXPIRY_MINUTES = 5;
 
@@ -30,6 +34,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private uploadService: UploadService,
+    private firebaseService: FirebaseService,
   ) {}
 
   // ==================== SEND OTP ====================
@@ -176,6 +181,136 @@ export class AuthService {
     };
   }
 
+  // ==================== FIREBASE AUTH (PRODUCTION) ====================
+  /**
+   * Authenticate user with Firebase ID token
+   * This is the production method - Firebase handles OTP sending/verification
+   * Mobile app sends Firebase ID token after successful phone verification
+   */
+  async firebaseAuth(dto: FirebaseAuthDto) {
+    const { firebase_token, device_info } = dto;
+
+    // Verify Firebase token and extract phone number
+    let firebaseUser: { uid: string; phone_number: string };
+    try {
+      firebaseUser = await this.firebaseService.verifyIdToken(firebase_token);
+    } catch (error) {
+      this.logger.error('Firebase token verification failed:', error);
+      throw new UnauthorizedException({
+        message: 'Invalid or expired Firebase token',
+        code: 'INVALID_FIREBASE_TOKEN',
+      });
+    }
+
+    const { phone_number } = firebaseUser;
+
+    // Normalize phone number to Pakistani format if needed
+    const normalizedPhone = this.normalizePhoneNumber(phone_number);
+
+    // Check if user already exists
+    const existingUser = await this.prisma.user.findUnique({
+      where: { phone_number: normalizedPhone },
+    });
+
+    const existingLaundry = await this.prisma.laundry.findUnique({
+      where: { phone_number: normalizedPhone },
+    });
+
+    // Existing customer login
+    if (existingUser) {
+      const tokens = await this.generateTokens(
+        existingUser.id,
+        normalizedPhone,
+        'CUSTOMER',
+        device_info,
+      );
+
+      this.logger.log(`Customer login: ${normalizedPhone}`);
+
+      return {
+        is_new_user: false,
+        requires_role_selection: false,
+        requires_location: existingUser.status === 'PENDING_LOCATION',
+        ...tokens,
+        user: this.sanitizeUser(existingUser),
+      };
+    }
+
+    // Existing laundry login
+    if (existingLaundry) {
+      const tokens = await this.generateTokens(
+        existingLaundry.id,
+        normalizedPhone,
+        'LAUNDRY',
+        device_info,
+      );
+
+      this.logger.log(`Laundry login: ${normalizedPhone}`);
+
+      return {
+        is_new_user: false,
+        requires_role_selection: false,
+        requires_location: existingLaundry.status === 'PENDING_LOCATION',
+        ...tokens,
+        user: this.sanitizeLaundry(existingLaundry),
+      };
+    }
+
+    // New user - create temp record and return temp token for registration
+    // Store verified phone in temp account (Firebase already verified it)
+    await this.prisma.tempAccount.deleteMany({
+      where: { phone_number: normalizedPhone },
+    });
+
+    await this.prisma.tempAccount.create({
+      data: {
+        phone_number: normalizedPhone,
+        otp_code: 'FIREBASE', // Marker that this was Firebase verified
+        otp_verified: true,
+        expires_at: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
+      },
+    });
+
+    const tempToken = this.jwtService.sign(
+      { phone_number: normalizedPhone, type: 'temp', firebase_uid: firebaseUser.uid },
+      { expiresIn: '30m' },
+    );
+
+    this.logger.log(`New user registration started: ${normalizedPhone}`);
+
+    return {
+      is_new_user: true,
+      requires_role_selection: true,
+      requires_location: false,
+      temp_token: tempToken,
+    };
+  }
+
+  /**
+   * Normalize phone number to Pakistani format (+92...)
+   */
+  private normalizePhoneNumber(phone: string): string {
+    if (!phone) return phone;
+
+    let cleaned = phone.replace(/[\s-]/g, '');
+
+    // Already in correct format
+    if (cleaned.match(/^\+92[0-9]{10}$/)) {
+      return cleaned;
+    }
+
+    // Handle various formats
+    if (cleaned.startsWith('0')) {
+      cleaned = '+92' + cleaned.substring(1);
+    } else if (cleaned.startsWith('3')) {
+      cleaned = '+92' + cleaned;
+    } else if (cleaned.startsWith('92')) {
+      cleaned = '+' + cleaned;
+    }
+
+    return cleaned;
+  }
+
   // ==================== REGISTER CUSTOMER ====================
   async registerCustomer(dto: RegisterCustomerDto) {
     const { temp_token, name, email } = dto;
@@ -251,7 +386,17 @@ export class AuthService {
       where: { phone_number },
     });
 
+    // Generate tokens for the new user
+    const tokens = await this.generateTokens(
+      customer.id,
+      phone_number,
+      'CUSTOMER',
+    );
+
+    this.logger.log(`Customer registered: ${phone_number}`);
+
     return {
+      ...tokens,
       user: this.sanitizeUser(customer),
       requires_location: true,
     };
@@ -342,7 +487,17 @@ export class AuthService {
       where: { phone_number },
     });
 
+    // Generate tokens for the new laundry
+    const tokens = await this.generateTokens(
+      laundry.id,
+      phone_number,
+      'LAUNDRY',
+    );
+
+    this.logger.log(`Laundry registered: ${phone_number}`);
+
     return {
+      ...tokens,
       user: this.sanitizeLaundry(laundry),
       requires_location: true,
     };
@@ -475,14 +630,7 @@ export class AuthService {
         },
       });
 
-      const tokens = await this.generateTokens(
-        user.id,
-        user.phone_number,
-        'CUSTOMER',
-      );
-
       return {
-        ...tokens,
         user: this.sanitizeUser(user),
       };
     } else {
@@ -498,14 +646,7 @@ export class AuthService {
         },
       });
 
-      const tokens = await this.generateTokens(
-        laundry.id,
-        laundry.phone_number,
-        'LAUNDRY',
-      );
-
       return {
-        ...tokens,
         user: this.sanitizeLaundry(laundry),
       };
     }
