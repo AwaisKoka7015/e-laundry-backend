@@ -197,6 +197,22 @@ export class LogoutDto {
   logout_all_devices?: boolean = false;
 }
 
+// ===== FIREBASE AUTH DTO =====
+export class FirebaseAuthDto {
+  @ApiProperty({
+    description: 'Firebase ID token from mobile app after phone verification',
+    example: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...',
+  })
+  @IsString()
+  @IsNotEmpty({ message: 'Firebase ID token is required' })
+  firebase_token: string;
+
+  @ApiPropertyOptional({ example: 'iPhone 14 Pro, iOS 17.0' })
+  @IsOptional()
+  @IsString()
+  device_info?: string;
+}
+
 // Response DTOs
 export class AuthResponseDto {
   @ApiProperty()
