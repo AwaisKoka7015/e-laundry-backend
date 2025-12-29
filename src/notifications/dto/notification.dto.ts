@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsOptional, IsArray, IsUUID } from 'class-validator';
 
 export class MarkNotificationsReadDto {

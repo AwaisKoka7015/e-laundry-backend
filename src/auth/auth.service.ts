@@ -64,7 +64,7 @@ export class AuthService {
 
     // Create new temp account with OTP
     const expiresAt = new Date(Date.now() + this.OTP_EXPIRY_MINUTES * 60 * 1000);
-    
+
     await this.prisma.tempAccount.create({
       data: {
         phone_number,
@@ -168,10 +168,7 @@ export class AuthService {
     }
 
     // New user - needs role selection
-    const tempToken = this.jwtService.sign(
-      { phone_number, type: 'temp' },
-      { expiresIn: '30m' },
-    );
+    const tempToken = this.jwtService.sign({ phone_number, type: 'temp' }, { expiresIn: '30m' });
 
     return {
       is_new_user: true,
@@ -387,11 +384,7 @@ export class AuthService {
     });
 
     // Generate tokens for the new user
-    const tokens = await this.generateTokens(
-      customer.id,
-      phone_number,
-      'CUSTOMER',
-    );
+    const tokens = await this.generateTokens(customer.id, phone_number, 'CUSTOMER');
 
     this.logger.log(`Customer registered: ${phone_number}`);
 
@@ -488,11 +481,7 @@ export class AuthService {
     });
 
     // Generate tokens for the new laundry
-    const tokens = await this.generateTokens(
-      laundry.id,
-      phone_number,
-      'LAUNDRY',
-    );
+    const tokens = await this.generateTokens(laundry.id, phone_number, 'LAUNDRY');
 
     this.logger.log(`Laundry registered: ${phone_number}`);
 
@@ -505,15 +494,7 @@ export class AuthService {
 
   // ==================== SELECT ROLE (LEGACY) ====================
   async selectRole(dto: SelectRoleDto) {
-    const {
-      phone_number,
-      role,
-      temp_token,
-      name,
-      laundry_name,
-      shop_images,
-      email,
-    } = dto;
+    const { phone_number, role, temp_token, name, laundry_name, shop_images, email } = dto;
 
     // Verify temp token if provided
     if (temp_token) {
@@ -687,12 +668,7 @@ export class AuthService {
     });
 
     // Generate new tokens
-    return this.generateTokens(
-      payload.sub,
-      payload.phone_number,
-      payload.role,
-      device_info,
-    );
+    return this.generateTokens(payload.sub, payload.phone_number, payload.role, device_info);
   }
 
   // ==================== LOGOUT ====================

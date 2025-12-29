@@ -18,10 +18,7 @@ export class PromoController {
   @ApiOperation({ summary: 'Validate promo code' })
   @ApiResponse({ status: 200, description: 'Promo code validated' })
   @ApiResponse({ status: 400, description: 'Invalid promo code' })
-  async validatePromo(
-    @CurrentUser() user: CurrentUserPayload,
-    @Body() dto: ValidatePromoDto,
-  ) {
+  async validatePromo(@CurrentUser() user: CurrentUserPayload, @Body() dto: ValidatePromoDto) {
     const data = await this.promoService.validatePromo(user.sub, dto);
     return {
       success: true,

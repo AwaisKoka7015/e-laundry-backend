@@ -1,12 +1,4 @@
-import {
-  IsOptional,
-  IsString,
-  IsEnum,
-  IsArray,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString, IsEnum, IsArray, MaxLength, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationQueryDto } from '../../common';
 

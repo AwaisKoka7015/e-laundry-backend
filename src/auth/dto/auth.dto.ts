@@ -18,7 +18,7 @@ import { Transform } from 'class-transformer';
 function transformPhoneNumber(value: string): string {
   if (!value) return value;
   let cleaned = value.replace(/[\s-]/g, '');
-  
+
   if (cleaned.startsWith('0')) {
     cleaned = '+92' + cleaned.substring(1);
   } else if (cleaned.startsWith('3')) {
@@ -26,7 +26,7 @@ function transformPhoneNumber(value: string): string {
   } else if (cleaned.startsWith('92')) {
     cleaned = '+' + cleaned;
   }
-  
+
   return cleaned;
 }
 

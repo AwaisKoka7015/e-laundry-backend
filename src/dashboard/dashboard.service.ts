@@ -82,7 +82,12 @@ export class DashboardService {
       take: 1,
     });
 
-    let favorite: { id: string; laundry_name: string | null; laundry_logo: string | null; orders_count: number } | null = null;
+    let favorite: {
+      id: string;
+      laundry_name: string | null;
+      laundry_logo: string | null;
+      orders_count: number;
+    } | null = null;
     if (favoriteLaundry.length > 0) {
       const laundry = await this.prisma.laundry.findUnique({
         where: { id: favoriteLaundry[0].laundry_id },

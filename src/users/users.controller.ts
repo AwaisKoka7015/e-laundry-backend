@@ -1,15 +1,5 @@
-import {
-  Controller,
-  Put,
-  Body,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { Controller, Put, Body, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { UpdateUserProfileDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards';
@@ -27,10 +17,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Update customer profile' })
   @ApiResponse({ status: 200, description: 'Profile updated successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async updateProfile(
-    @CurrentUser() user: CurrentUserPayload,
-    @Body() dto: UpdateUserProfileDto,
-  ) {
+  async updateProfile(@CurrentUser() user: CurrentUserPayload, @Body() dto: UpdateUserProfileDto) {
     const data = await this.usersService.updateProfile(user.sub, dto);
     return {
       success: true,

@@ -1,4 +1,12 @@
-import { IsOptional, IsString, IsBoolean, IsInt, Min, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsBoolean,
+  IsInt,
+  Min,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -82,7 +90,10 @@ export class ReorderCategoryDto {
 }
 
 export class ReorderCategoriesDto {
-  @ApiProperty({ type: [ReorderCategoryDto], description: 'Array of categories with new sort orders' })
+  @ApiProperty({
+    type: [ReorderCategoryDto],
+    description: 'Array of categories with new sort orders',
+  })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ReorderCategoryDto)

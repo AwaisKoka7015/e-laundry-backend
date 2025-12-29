@@ -10,13 +10,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-  ApiQuery,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto, UpdateOrderStatusDto, CancelOrderDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards';
@@ -61,10 +55,7 @@ export class OrdersController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Place new order' })
   @ApiResponse({ status: 201, description: 'Order created' })
-  async createOrder(
-    @CurrentUser() user: CurrentUserPayload,
-    @Body() dto: CreateOrderDto,
-  ) {
+  async createOrder(@CurrentUser() user: CurrentUserPayload, @Body() dto: CreateOrderDto) {
     const data = await this.ordersService.createOrder(user.sub, dto);
     return {
       success: true,
@@ -79,10 +70,7 @@ export class OrdersController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get order details' })
   @ApiResponse({ status: 200, description: 'Order details' })
-  async getOrderDetails(
-    @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
-  ) {
+  async getOrderDetails(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
     const data = await this.ordersService.getOrderDetails(id, user.sub, user.role);
     return { success: true, data };
   }
@@ -110,10 +98,7 @@ export class OrdersController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get order timeline' })
   @ApiResponse({ status: 200, description: 'Order timeline' })
-  async getOrderTimeline(
-    @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
-  ) {
+  async getOrderTimeline(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
     const data = await this.ordersService.getOrderTimeline(id, user.sub, user.role);
     return { success: true, data };
   }
@@ -153,10 +138,7 @@ export class OrdersController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get order details' })
   @ApiResponse({ status: 200, description: 'Order details with customer info' })
-  async getLaundryOrderDetails(
-    @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
-  ) {
+  async getLaundryOrderDetails(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
     const data = await this.ordersService.getOrderDetails(id, user.sub, user.role);
     return { success: true, data };
   }

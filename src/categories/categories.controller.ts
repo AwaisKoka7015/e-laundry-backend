@@ -9,7 +9,12 @@ export class CategoriesController {
 
   @Get()
   @ApiOperation({ summary: 'List all service categories' })
-  @ApiQuery({ name: 'active', required: false, type: Boolean, description: 'Filter by active status' })
+  @ApiQuery({
+    name: 'active',
+    required: false,
+    type: Boolean,
+    description: 'Filter by active status',
+  })
   @ApiResponse({ status: 200, description: 'List of categories' })
   async findAll(@Query('active') active?: string) {
     const isActive = active === undefined ? true : active === 'true';

@@ -151,7 +151,19 @@ export class CreateOrderDto {
 }
 
 export class UpdateOrderStatusDto {
-  @ApiProperty({ enum: ['ACCEPTED', 'REJECTED', 'PICKUP_SCHEDULED', 'PICKED_UP', 'PROCESSING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'] })
+  @ApiProperty({
+    enum: [
+      'ACCEPTED',
+      'REJECTED',
+      'PICKUP_SCHEDULED',
+      'PICKED_UP',
+      'PROCESSING',
+      'READY',
+      'OUT_FOR_DELIVERY',
+      'DELIVERED',
+      'COMPLETED',
+    ],
+  })
   @IsEnum(OrderStatus)
   status: OrderStatus;
 

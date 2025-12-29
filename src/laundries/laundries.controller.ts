@@ -1,19 +1,5 @@
-import {
-  Controller,
-  Get,
-  Put,
-  Body,
-  Param,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-  ApiQuery,
-} from '@nestjs/swagger';
+import { Controller, Get, Put, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { LaundriesService } from './laundries.service';
 import {
   UpdateLaundryProfileDto,
@@ -97,7 +83,13 @@ export class LaundriesController {
   })
   @ApiQuery({ name: 'latitude', required: true, type: Number, example: 31.5204 })
   @ApiQuery({ name: 'longitude', required: true, type: Number, example: 74.3587 })
-  @ApiQuery({ name: 'radius_km', required: false, type: Number, example: 10, description: 'Search radius in KM (default: 10)' })
+  @ApiQuery({
+    name: 'radius_km',
+    required: false,
+    type: Number,
+    example: 10,
+    description: 'Search radius in KM (default: 10)',
+  })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
   @ApiQuery({ name: 'min_rating', required: false, type: Number })
@@ -148,7 +140,12 @@ export class LaundriesController {
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
   @ApiQuery({ name: 'city', required: false, type: String })
-  @ApiQuery({ name: 'min_reviews', required: false, type: Number, description: 'Minimum reviews to be considered' })
+  @ApiQuery({
+    name: 'min_reviews',
+    required: false,
+    type: Number,
+    description: 'Minimum reviews to be considered',
+  })
   @ApiQuery({ name: 'category_id', required: false, type: String })
   @ApiResponse({
     status: 200,

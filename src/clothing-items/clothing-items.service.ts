@@ -7,7 +7,7 @@ export class ClothingItemsService {
 
   async findAll(type?: string, active: boolean = true) {
     const where: any = active ? { is_active: true } : {};
-    
+
     if (type) {
       where.type = type;
     }

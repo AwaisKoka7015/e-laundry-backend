@@ -3,7 +3,6 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReviewDto, ReplyReviewDto } from './dto';
@@ -83,7 +82,10 @@ export class ReviewsService {
       },
     });
 
-    return { review, can_review: !review && (order.status === 'COMPLETED' || order.status === 'DELIVERED') };
+    return {
+      review,
+      can_review: !review && (order.status === 'COMPLETED' || order.status === 'DELIVERED'),
+    };
   }
 
   // Public: Get laundry reviews

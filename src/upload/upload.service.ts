@@ -39,9 +39,7 @@ export class UploadService {
   ): Promise<{ url: string; public_id: string }> {
     // Validate image
     if (!image.startsWith('data:image/')) {
-      throw new BadRequestException(
-        'Invalid image format. Must be base64 encoded.',
-      );
+      throw new BadRequestException('Invalid image format. Must be base64 encoded.');
     }
 
     // Default transformations based on folder

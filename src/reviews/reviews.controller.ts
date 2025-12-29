@@ -1,18 +1,5 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto, ReplyReviewDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards';
@@ -51,10 +38,7 @@ export class ReviewsController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get review for order' })
   @ApiResponse({ status: 200, description: 'Order review' })
-  async getOrderReview(
-    @CurrentUser() user: CurrentUserPayload,
-    @Param('id') orderId: string,
-  ) {
+  async getOrderReview(@CurrentUser() user: CurrentUserPayload, @Param('id') orderId: string) {
     const data = await this.reviewsService.getOrderReview(orderId, user.sub);
     return { success: true, data };
   }

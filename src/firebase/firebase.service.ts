@@ -24,9 +24,7 @@ export class FirebaseService implements OnModuleInit {
     const privateKey = this.configService.get<string>('FIREBASE_PRIVATE_KEY');
 
     if (!projectId || !clientEmail || !privateKey) {
-      this.logger.warn(
-        'Firebase credentials not found. Firebase features will be disabled.',
-      );
+      this.logger.warn('Firebase credentials not found. Firebase features will be disabled.');
       return;
     }
 

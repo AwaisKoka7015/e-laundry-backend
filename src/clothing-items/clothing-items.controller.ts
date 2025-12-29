@@ -12,10 +12,7 @@ export class ClothingItemsController {
   @ApiQuery({ name: 'type', required: false, enum: ['MEN', 'WOMEN', 'KIDS', 'HOME'] })
   @ApiQuery({ name: 'active', required: false, type: Boolean })
   @ApiResponse({ status: 200, description: 'List of clothing items' })
-  async findAll(
-    @Query('type') type?: string,
-    @Query('active') active?: string,
-  ) {
+  async findAll(@Query('type') type?: string, @Query('active') active?: string) {
     const isActive = active === undefined ? true : active === 'true';
     const data = await this.clothingItemsService.findAll(type, isActive);
     return {

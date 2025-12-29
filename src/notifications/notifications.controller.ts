@@ -49,15 +49,8 @@ export class NotificationsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Mark notifications as read' })
   @ApiResponse({ status: 200, description: 'Notifications marked as read' })
-  async markAsRead(
-    @CurrentUser() user: CurrentUserPayload,
-    @Body() dto: MarkNotificationsReadDto,
-  ) {
-    const data = await this.notificationsService.markAsRead(
-      user.sub,
-      user.role,
-      dto,
-    );
+  async markAsRead(@CurrentUser() user: CurrentUserPayload, @Body() dto: MarkNotificationsReadDto) {
+    const data = await this.notificationsService.markAsRead(user.sub, user.role, dto);
     return { success: true, ...data };
   }
 
@@ -65,15 +58,8 @@ export class NotificationsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Mark single notification as read' })
   @ApiResponse({ status: 200, description: 'Notification marked as read' })
-  async markSingleAsRead(
-    @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
-  ) {
-    const data = await this.notificationsService.markSingleAsRead(
-      id,
-      user.sub,
-      user.role,
-    );
+  async markSingleAsRead(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
+    const data = await this.notificationsService.markSingleAsRead(id, user.sub, user.role);
     return { success: true, ...data };
   }
 }

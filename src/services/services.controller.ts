@@ -1,19 +1,5 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Body,
-  Param,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ServicesService } from './services.service';
 import { CreateServiceDto, UpdateServiceDto, BulkPricingDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards';
@@ -44,10 +30,7 @@ export class ServicesController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Create new service' })
   @ApiResponse({ status: 201, description: 'Service created' })
-  async create(
-    @CurrentUser() user: CurrentUserPayload,
-    @Body() dto: CreateServiceDto,
-  ) {
+  async create(@CurrentUser() user: CurrentUserPayload, @Body() dto: CreateServiceDto) {
     const data = await this.servicesService.create(user.sub, dto);
     return {
       success: true,
@@ -63,10 +46,7 @@ export class ServicesController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get service details' })
   @ApiResponse({ status: 200, description: 'Service details' })
-  async findOne(
-    @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
-  ) {
+  async findOne(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
     const data = await this.servicesService.findOne(user.sub, id);
     return { success: true, data };
   }
@@ -98,10 +78,7 @@ export class ServicesController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Delete service' })
   @ApiResponse({ status: 200, description: 'Service deleted' })
-  async delete(
-    @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
-  ) {
+  async delete(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
     const data = await this.servicesService.delete(user.sub, id);
     return { success: true, ...data };
   }
@@ -113,10 +90,7 @@ export class ServicesController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get service pricing' })
   @ApiResponse({ status: 200, description: 'Service pricing' })
-  async getPricing(
-    @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
-  ) {
+  async getPricing(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
     const data = await this.servicesService.getPricing(user.sub, id);
     return { success: true, data };
   }

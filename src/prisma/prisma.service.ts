@@ -21,7 +21,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     if (process.env.NODE_ENV === 'production') {
       throw new Error('Cannot clean database in production');
     }
-    
+
     // Delete in order respecting foreign keys
     await this.$transaction([
       this.notification.deleteMany(),

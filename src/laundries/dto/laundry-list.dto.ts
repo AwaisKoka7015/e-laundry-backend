@@ -1,12 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsOptional,
-  IsNumber,
-  IsString,
-  IsEnum,
-  Min,
-  Max,
-} from 'class-validator';
+import { IsOptional, IsNumber, IsString, IsEnum, Min, Max } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
 export enum SortBy {

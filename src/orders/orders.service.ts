@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateOrderDto, UpdateOrderStatusDto, CancelOrderDto, OrderStatus } from './dto';
+import { CreateOrderDto, UpdateOrderStatusDto, CancelOrderDto } from './dto';
 
 @Injectable()
 export class OrdersService {
@@ -27,7 +27,15 @@ export class OrdersService {
   };
 
   private readonly CANCELLABLE_STATUSES = ['PENDING', 'ACCEPTED', 'PICKUP_SCHEDULED', 'PICKED_UP'];
-  private readonly ACTIVE_STATUSES = ['PENDING', 'ACCEPTED', 'PICKUP_SCHEDULED', 'PICKED_UP', 'PROCESSING', 'READY', 'OUT_FOR_DELIVERY'];
+  private readonly ACTIVE_STATUSES = [
+    'PENDING',
+    'ACCEPTED',
+    'PICKUP_SCHEDULED',
+    'PICKED_UP',
+    'PROCESSING',
+    'READY',
+    'OUT_FOR_DELIVERY',
+  ];
 
   // ==================== CUSTOMER METHODS ====================
 
@@ -80,7 +88,9 @@ export class OrdersService {
 
       // Apply express pricing
       if (dto.order_type === 'EXPRESS' && pricing.express_price) {
-        itemPrice = pricing.express_price * (pricing.price_unit === 'PER_KG' ? (item.weight_kg || 1) : quantity);
+        itemPrice =
+          pricing.express_price *
+          (pricing.price_unit === 'PER_KG' ? item.weight_kg || 1 : quantity);
       }
 
       subtotal += itemPrice;
@@ -167,7 +177,12 @@ export class OrdersService {
     });
 
     // Create timeline entry
-    await this.createTimelineEntry(order.id, 'ORDER_PLACED', 'Order Placed', 'Your order has been placed successfully');
+    await this.createTimelineEntry(
+      order.id,
+      'ORDER_PLACED',
+      'Order Placed',
+      'Your order has been placed successfully',
+    );
 
     // Create status history
     await this.prisma.orderStatusHistory.create({
@@ -436,7 +451,12 @@ export class OrdersService {
 
     // Create timeline entry
     const timelineEvent = this.getTimelineEvent(dto.status);
-    await this.createTimelineEntry(orderId, timelineEvent.event, timelineEvent.title, dto.notes || timelineEvent.description);
+    await this.createTimelineEntry(
+      orderId,
+      timelineEvent.event,
+      timelineEvent.title,
+      dto.notes || timelineEvent.description,
+    );
 
     // Create status history
     await this.prisma.orderStatusHistory.create({
@@ -464,7 +484,7 @@ export class OrdersService {
   private async generateOrderNumber(): Promise<string> {
     const date = new Date();
     const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-    
+
     const todayStart = new Date(date.setHours(0, 0, 0, 0));
     const todayEnd = new Date(date.setHours(23, 59, 59, 999));
 
@@ -501,15 +521,47 @@ export class OrdersService {
 
   private getTimelineEvent(status: string): { event: string; title: string; description: string } {
     const events: Record<string, { event: string; title: string; description: string }> = {
-      ACCEPTED: { event: 'ORDER_ACCEPTED', title: 'Order Accepted', description: 'Your order has been accepted by the laundry' },
-      REJECTED: { event: 'ORDER_REJECTED', title: 'Order Rejected', description: 'Your order has been rejected' },
-      PICKUP_SCHEDULED: { event: 'PICKUP_SCHEDULED', title: 'Pickup Scheduled', description: 'Pickup has been scheduled' },
-      PICKED_UP: { event: 'PICKED_UP', title: 'Picked Up', description: 'Your clothes have been picked up' },
-      PROCESSING: { event: 'PROCESSING', title: 'Processing', description: 'Your clothes are being processed' },
+      ACCEPTED: {
+        event: 'ORDER_ACCEPTED',
+        title: 'Order Accepted',
+        description: 'Your order has been accepted by the laundry',
+      },
+      REJECTED: {
+        event: 'ORDER_REJECTED',
+        title: 'Order Rejected',
+        description: 'Your order has been rejected',
+      },
+      PICKUP_SCHEDULED: {
+        event: 'PICKUP_SCHEDULED',
+        title: 'Pickup Scheduled',
+        description: 'Pickup has been scheduled',
+      },
+      PICKED_UP: {
+        event: 'PICKED_UP',
+        title: 'Picked Up',
+        description: 'Your clothes have been picked up',
+      },
+      PROCESSING: {
+        event: 'PROCESSING',
+        title: 'Processing',
+        description: 'Your clothes are being processed',
+      },
       READY: { event: 'READY', title: 'Ready', description: 'Your clothes are ready for delivery' },
-      OUT_FOR_DELIVERY: { event: 'OUT_FOR_DELIVERY', title: 'Out for Delivery', description: 'Your clothes are on the way' },
-      DELIVERED: { event: 'DELIVERED', title: 'Delivered', description: 'Your clothes have been delivered' },
-      COMPLETED: { event: 'COMPLETED', title: 'Completed', description: 'Order completed successfully' },
+      OUT_FOR_DELIVERY: {
+        event: 'OUT_FOR_DELIVERY',
+        title: 'Out for Delivery',
+        description: 'Your clothes are on the way',
+      },
+      DELIVERED: {
+        event: 'DELIVERED',
+        title: 'Delivered',
+        description: 'Your clothes have been delivered',
+      },
+      COMPLETED: {
+        event: 'COMPLETED',
+        title: 'Completed',
+        description: 'Order completed successfully',
+      },
     };
 
     return events[status] || { event: status, title: status, description: '' };
@@ -537,7 +589,7 @@ export class OrdersService {
     code: string,
     orderAmount: number,
     customerId: string,
-    laundryId: string,
+    _laundryId: string,
   ): Promise<{ calculated_discount: number }> {
     const promo = await this.prisma.promoCode.findUnique({
       where: { code: code.toUpperCase() },

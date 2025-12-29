@@ -51,9 +51,7 @@ export class SearchService {
     // Filter by category if specified
     let filtered = laundriesWithDistance;
     if (categoryId) {
-      filtered = laundriesWithDistance.filter(
-        (l) => l.services.length > 0,
-      );
+      filtered = laundriesWithDistance.filter((l) => l.services.length > 0);
     }
 
     // Sort
@@ -102,12 +100,7 @@ export class SearchService {
     };
   }
 
-  private calculateDistance(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
-  ): number {
+  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371; // Earth's radius in km
     const dLat = this.toRad(lat2 - lat1);
     const dLon = this.toRad(lon2 - lon1);

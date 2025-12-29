@@ -140,10 +140,7 @@ export class LaundriesService {
 
     // Paginate
     const total = laundriesWithDistance.length;
-    const paginated = laundriesWithDistance.slice(
-      (page - 1) * limit,
-      page * limit,
-    );
+    const paginated = laundriesWithDistance.slice((page - 1) * limit, page * limit);
 
     // Get service previews
     const laundryIds = paginated.map((l) => l.id);
@@ -164,13 +161,7 @@ export class LaundriesService {
 
   // ==================== GET TOP RATED LAUNDRIES ====================
   async getTopRatedLaundries(dto: GetTopRatedLaundriesDto) {
-    const {
-      page = 1,
-      limit = 10,
-      city,
-      min_reviews = 0,
-      category_id,
-    } = dto;
+    const { page = 1, limit = 10, city, min_reviews = 0, category_id } = dto;
 
     // Build where clause
     const where: Prisma.LaundryWhereInput = {
@@ -194,11 +185,7 @@ export class LaundriesService {
     // Get paginated results - sorted by rating DESC, then by total_reviews DESC
     const laundries = await this.prisma.laundry.findMany({
       where,
-      orderBy: [
-        { rating: 'desc' },
-        { total_reviews: 'desc' },
-        { total_orders: 'desc' },
-      ],
+      orderBy: [{ rating: 'desc' }, { total_reviews: 'desc' }, { total_orders: 'desc' }],
       skip: (page - 1) * limit,
       take: limit,
       select: this.getLaundrySelectFields(),
@@ -312,9 +299,7 @@ export class LaundriesService {
   /**
    * Get service category names for multiple laundries (batch query)
    */
-  private async getServicesPreview(
-    laundryIds: string[],
-  ): Promise<Map<string, string[]>> {
+  private async getServicesPreview(laundryIds: string[]): Promise<Map<string, string[]>> {
     if (laundryIds.length === 0) return new Map();
 
     const services = await this.prisma.laundryService.findMany({
@@ -409,11 +394,7 @@ export class LaundriesService {
   /**
    * Build pagination metadata
    */
-  private buildPagination(
-    page: number,
-    limit: number,
-    total: number,
-  ): PaginationMeta {
+  private buildPagination(page: number, limit: number, total: number): PaginationMeta {
     const totalPages = Math.ceil(total / limit);
     return {
       page,
@@ -428,12 +409,7 @@ export class LaundriesService {
   /**
    * Calculate distance between two coordinates using Haversine formula
    */
-  private calculateDistance(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
-  ): number {
+  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371; // Earth's radius in km
     const dLat = this.toRad(lat2 - lat1);
     const dLon = this.toRad(lon2 - lon1);

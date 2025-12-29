@@ -178,11 +178,7 @@ export class NotificationsService {
   }
 
   // Notify laundry about new order
-  async notifyLaundryNewOrder(
-    laundryId: string,
-    orderId: string,
-    orderNumber: string,
-  ) {
+  async notifyLaundryNewOrder(laundryId: string, orderId: string, orderNumber: string) {
     return this.createNotification({
       type: 'ORDER_UPDATE',
       title: 'New Order Received',
