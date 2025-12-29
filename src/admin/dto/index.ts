@@ -5,3 +5,6 @@ export * from './admin-categories.dto';
 export * from './admin-clothing-items.dto';
 export * from './admin-reviews.dto';
 export * from './admin-promo-codes.dto';
+export * from './admin-dashboard.dto';
+export * from './admin-notifications.dto';
+export * from './admin-settings.dto';

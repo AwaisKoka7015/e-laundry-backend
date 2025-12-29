@@ -32,6 +32,12 @@ import {
   CreatePromoCodeDto,
   UpdatePromoCodeDto,
   PromoUsageQueryDto,
+  DashboardQueryDto,
+  AdminNotificationsQueryDto,
+  SendNotificationDto,
+  SendBulkNotificationDto,
+  UpdateSettingDto,
+  BulkUpdateSettingsDto,
 } from './dto';
 
 @ApiTags('Admin')
@@ -324,15 +330,8 @@ export class AdminController {
   @ApiOperation({ summary: 'Update order status' })
   @ApiResponse({ status: 200, description: 'Order status updated' })
   @ApiResponse({ status: 404, description: 'Order not found' })
-  async updateOrderStatus(
-    @Param('id') id: string,
-    @Body() dto: UpdateOrderStatusDto,
-  ) {
-    const data = await this.adminService.updateOrderStatus(
-      id,
-      dto.status,
-      dto.notes,
-    );
+  async updateOrderStatus(@Param('id') id: string, @Body() dto: UpdateOrderStatusDto) {
+    const data = await this.adminService.updateOrderStatus(id, dto.status, dto.notes);
     return {
       success: true,
       message: `Order status updated to ${dto.status}`,
@@ -574,10 +573,7 @@ export class AdminController {
   @ApiOperation({ summary: 'Update review visibility' })
   @ApiResponse({ status: 200, description: 'Visibility updated' })
   @ApiResponse({ status: 404, description: 'Review not found' })
-  async updateReviewVisibility(
-    @Param('id') id: string,
-    @Body() dto: UpdateReviewVisibilityDto,
-  ) {
+  async updateReviewVisibility(@Param('id') id: string, @Body() dto: UpdateReviewVisibilityDto) {
     const data = await this.adminService.updateReviewVisibility(id, dto.is_visible);
     return {
       success: true,
@@ -606,7 +602,11 @@ export class AdminController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
-  @ApiQuery({ name: 'status', required: false, enum: ['all', 'active', 'inactive', 'expired', 'used_up'] })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['all', 'active', 'inactive', 'expired', 'used_up'],
+  })
   @ApiQuery({ name: 'type', required: false, enum: ['all', 'PERCENTAGE', 'FIXED'] })
   @ApiResponse({ status: 200, description: 'List of promo codes' })
   async getPromoCodes(@Query() query: AdminPromoCodesQueryDto) {
@@ -706,6 +706,254 @@ export class AdminController {
       success: true,
       message: `Promo code ${data.is_active ? 'activated' : 'deactivated'} successfully`,
       data,
+    };
+  }
+
+  // ==================== DASHBOARD ====================
+
+  @Get('dashboard')
+  @ApiOperation({ summary: 'Get dashboard summary with all data' })
+  @ApiResponse({ status: 200, description: 'Dashboard summary retrieved' })
+  async getDashboardSummary(@Query() query: DashboardQueryDto) {
+    const data = await this.adminService.getDashboardSummary(query);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Get('dashboard/stats')
+  @ApiOperation({ summary: 'Get dashboard statistics' })
+  @ApiResponse({ status: 200, description: 'Dashboard stats retrieved' })
+  async getDashboardStats(@Query() query: DashboardQueryDto) {
+    const data = await this.adminService.getDashboardStats(query);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Get('dashboard/chart')
+  @ApiOperation({ summary: 'Get dashboard chart data' })
+  @ApiResponse({ status: 200, description: 'Chart data retrieved' })
+  async getDashboardChartData(@Query() query: DashboardQueryDto) {
+    const data = await this.adminService.getDashboardChartData(query);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Get('dashboard/order-status')
+  @ApiOperation({ summary: 'Get order status distribution' })
+  @ApiResponse({ status: 200, description: 'Order status data retrieved' })
+  async getDashboardOrderStatus(@Query() query: DashboardQueryDto) {
+    const data = await this.adminService.getDashboardOrderStatus(query);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Get('dashboard/recent-orders')
+  @ApiOperation({ summary: 'Get recent orders for dashboard' })
+  @ApiResponse({ status: 200, description: 'Recent orders retrieved' })
+  async getDashboardRecentOrders(@Query('limit') limit?: number) {
+    const data = await this.adminService.getDashboardRecentOrders(limit || 5);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Get('dashboard/top-laundries')
+  @ApiOperation({ summary: 'Get top performing laundries' })
+  @ApiResponse({ status: 200, description: 'Top laundries retrieved' })
+  async getDashboardTopLaundries(
+    @Query() query: DashboardQueryDto,
+    @Query('limit') limit?: number,
+  ) {
+    const data = await this.adminService.getDashboardTopLaundries(query, limit || 5);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  // ==================== NOTIFICATIONS ====================
+
+  @Get('notifications')
+  @ApiOperation({ summary: 'Get all notifications with filters and pagination' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: ['all', 'ORDER_UPDATE', 'PROMO', 'SYSTEM', 'REVIEW', 'WELCOME'],
+  })
+  @ApiQuery({ name: 'target', required: false, enum: ['ALL_USERS', 'CUSTOMERS', 'LAUNDRIES'] })
+  @ApiResponse({ status: 200, description: 'List of notifications' })
+  async getNotifications(@Query() query: AdminNotificationsQueryDto) {
+    const result = await this.adminService.getNotifications(query);
+    return {
+      success: true,
+      ...result,
+    };
+  }
+
+  @Get('notifications/campaigns')
+  @ApiOperation({ summary: 'Get notification campaigns (grouped notifications)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: ['all', 'ORDER_UPDATE', 'PROMO', 'SYSTEM', 'REVIEW', 'WELCOME'],
+  })
+  @ApiResponse({ status: 200, description: 'List of notification campaigns' })
+  async getNotificationCampaigns(@Query() query: AdminNotificationsQueryDto) {
+    const result = await this.adminService.getNotificationCampaigns(query);
+    return {
+      success: true,
+      ...result,
+    };
+  }
+
+  @Get('notifications/stats')
+  @ApiOperation({ summary: 'Get notification statistics' })
+  @ApiResponse({ status: 200, description: 'Notification stats' })
+  async getNotificationStats() {
+    const data = await this.adminService.getNotificationStats();
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Post('notifications/send')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Send notification to target audience' })
+  @ApiResponse({ status: 200, description: 'Notification sent' })
+  async sendNotification(@Body() dto: SendNotificationDto) {
+    const result = await this.adminService.sendNotification(dto);
+    return {
+      success: true,
+      message: `Notification sent to ${result.sent_count} recipients`,
+      data: result,
+    };
+  }
+
+  @Post('notifications/send-bulk')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Send notification to specific users' })
+  @ApiResponse({ status: 200, description: 'Bulk notification sent' })
+  async sendBulkNotification(@Body() dto: SendBulkNotificationDto) {
+    const result = await this.adminService.sendBulkNotification(dto);
+    return {
+      success: true,
+      message: `Notification sent to ${result.sent_count} users`,
+      data: result,
+    };
+  }
+
+  @Delete('notifications/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete a notification' })
+  @ApiResponse({ status: 200, description: 'Notification deleted' })
+  @ApiResponse({ status: 404, description: 'Notification not found' })
+  async deleteNotification(@Param('id') id: string) {
+    const result = await this.adminService.deleteNotification(id);
+    return {
+      success: true,
+      ...result,
+    };
+  }
+
+  // ==================== SETTINGS ====================
+
+  @Get('settings')
+  @ApiOperation({ summary: 'Get all settings' })
+  @ApiResponse({ status: 200, description: 'All settings retrieved' })
+  async getAllSettings() {
+    const data = await this.adminService.getAllSettings();
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Get('settings/category/:category')
+  @ApiOperation({ summary: 'Get settings by category' })
+  @ApiResponse({ status: 200, description: 'Category settings retrieved' })
+  @ApiResponse({ status: 404, description: 'Category not found' })
+  async getSettingsByCategory(@Param('category') category: string) {
+    const data = await this.adminService.getSettingsByCategory(category);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Get('settings/:key')
+  @ApiOperation({ summary: 'Get a specific setting' })
+  @ApiResponse({ status: 200, description: 'Setting retrieved' })
+  @ApiResponse({ status: 404, description: 'Setting not found' })
+  async getSetting(@Param('key') key: string) {
+    const data = await this.adminService.getSetting(key);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Put('settings/:key')
+  @ApiOperation({ summary: 'Update a specific setting' })
+  @ApiResponse({ status: 200, description: 'Setting updated' })
+  async updateSetting(@Param('key') key: string, @Body() dto: UpdateSettingDto) {
+    const data = await this.adminService.updateSetting(key, dto.value);
+    return {
+      success: true,
+      message: `Setting "${key}" updated successfully`,
+      data,
+    };
+  }
+
+  @Put('settings')
+  @ApiOperation({ summary: 'Bulk update settings' })
+  @ApiResponse({ status: 200, description: 'Settings updated' })
+  async updateSettingsBulk(@Body() dto: BulkUpdateSettingsDto) {
+    const result = await this.adminService.updateSettingsBulk(dto);
+    return {
+      success: true,
+      message: `${result.updated} settings updated successfully`,
+      data: result,
+    };
+  }
+
+  @Delete('settings/:key')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete a setting (reset to default)' })
+  @ApiResponse({ status: 200, description: 'Setting deleted' })
+  @ApiResponse({ status: 404, description: 'Setting not found' })
+  async deleteSetting(@Param('key') key: string) {
+    const result = await this.adminService.deleteSetting(key);
+    return {
+      success: true,
+      ...result,
+    };
+  }
+
+  @Post('settings/reset')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset all settings to defaults' })
+  @ApiResponse({ status: 200, description: 'Settings reset' })
+  async resetSettings() {
+    const result = await this.adminService.resetSettings();
+    return {
+      success: true,
+      ...result,
     };
   }
 }

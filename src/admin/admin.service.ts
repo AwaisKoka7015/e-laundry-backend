@@ -26,6 +26,14 @@ import {
   CreatePromoCodeDto,
   UpdatePromoCodeDto,
   PromoUsageQueryDto,
+  DashboardQueryDto,
+  DashboardPeriod,
+  AdminNotificationsQueryDto,
+  AdminNotificationType,
+  NotificationTarget,
+  SendNotificationDto,
+  SendBulkNotificationDto,
+  BulkUpdateSettingsDto,
 } from './dto';
 import { Prisma } from '@prisma/client';
 
@@ -93,10 +101,7 @@ export class AdminService {
 
     // Calculate total spent for each user
     const usersWithStats = users.map((user) => {
-      const totalSpent = user.orders.reduce(
-        (sum, order) => sum + (order.total_amount || 0),
-        0,
-      );
+      const totalSpent = user.orders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
       return {
         id: user.id,
         name: user.name,
@@ -480,19 +485,18 @@ export class AdminService {
   }
 
   async getLaundryStats() {
-    const [total, active, suspended, verified, unverified, pendingLocation] =
-      await Promise.all([
-        this.prisma.laundry.count({ where: { status: { not: 'DELETED' } } }),
-        this.prisma.laundry.count({ where: { status: 'ACTIVE' } }),
-        this.prisma.laundry.count({ where: { status: 'SUSPENDED' } }),
-        this.prisma.laundry.count({
-          where: { is_verified: true, status: { not: 'DELETED' } },
-        }),
-        this.prisma.laundry.count({
-          where: { is_verified: false, status: { not: 'DELETED' } },
-        }),
-        this.prisma.laundry.count({ where: { status: 'PENDING_LOCATION' } }),
-      ]);
+    const [total, active, suspended, verified, unverified, pendingLocation] = await Promise.all([
+      this.prisma.laundry.count({ where: { status: { not: 'DELETED' } } }),
+      this.prisma.laundry.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.laundry.count({ where: { status: 'SUSPENDED' } }),
+      this.prisma.laundry.count({
+        where: { is_verified: true, status: { not: 'DELETED' } },
+      }),
+      this.prisma.laundry.count({
+        where: { is_verified: false, status: { not: 'DELETED' } },
+      }),
+      this.prisma.laundry.count({ where: { status: 'PENDING_LOCATION' } }),
+    ]);
 
     return {
       total,
@@ -661,11 +665,7 @@ export class AdminService {
     return order;
   }
 
-  async updateOrderStatus(
-    id: string,
-    status: string,
-    notes?: string,
-  ) {
+  async updateOrderStatus(id: string, status: string, notes?: string) {
     const order = await this.prisma.order.findUnique({ where: { id } });
 
     if (!order) {
@@ -685,7 +685,10 @@ export class AdminService {
         ...(status === 'PROCESSING' && { processing_started_at: new Date() }),
         ...(status === 'READY' && { ready_at: new Date() }),
         ...(status === 'OUT_FOR_DELIVERY' && { out_for_delivery_at: new Date() }),
-        ...(status === 'DELIVERED' && { delivered_at: new Date(), actual_delivery_date: new Date() }),
+        ...(status === 'DELIVERED' && {
+          delivered_at: new Date(),
+          actual_delivery_date: new Date(),
+        }),
         ...(status === 'CANCELLED' && { cancelled_at: new Date() }),
       },
     });
@@ -1067,9 +1070,7 @@ export class AdminService {
     });
 
     if (existing) {
-      throw new ConflictException(
-        `Item "${dto.name}" already exists for type ${dto.type}`,
-      );
+      throw new ConflictException(`Item "${dto.name}" already exists for type ${dto.type}`);
     }
 
     // Get max sort order for this type if not provided
@@ -1114,9 +1115,7 @@ export class AdminService {
         where: { name_type: { name: newName, type: newType as any } },
       });
       if (existing && existing.id !== id) {
-        throw new ConflictException(
-          `Item "${newName}" already exists for type ${newType}`,
-        );
+        throw new ConflictException(`Item "${newName}" already exists for type ${newType}`);
       }
     }
 
@@ -1180,17 +1179,15 @@ export class AdminService {
   }
 
   async getClothingItemStats() {
-    const [total, men, women, kids, home, active, inactive] = await Promise.all(
-      [
-        this.prisma.clothingItem.count(),
-        this.prisma.clothingItem.count({ where: { type: 'MEN' } }),
-        this.prisma.clothingItem.count({ where: { type: 'WOMEN' } }),
-        this.prisma.clothingItem.count({ where: { type: 'KIDS' } }),
-        this.prisma.clothingItem.count({ where: { type: 'HOME' } }),
-        this.prisma.clothingItem.count({ where: { is_active: true } }),
-        this.prisma.clothingItem.count({ where: { is_active: false } }),
-      ],
-    );
+    const [total, men, women, kids, home, active, inactive] = await Promise.all([
+      this.prisma.clothingItem.count(),
+      this.prisma.clothingItem.count({ where: { type: 'MEN' } }),
+      this.prisma.clothingItem.count({ where: { type: 'WOMEN' } }),
+      this.prisma.clothingItem.count({ where: { type: 'KIDS' } }),
+      this.prisma.clothingItem.count({ where: { type: 'HOME' } }),
+      this.prisma.clothingItem.count({ where: { is_active: true } }),
+      this.prisma.clothingItem.count({ where: { is_active: false } }),
+    ]);
 
     return { total, men, women, kids, home, active, inactive };
   }
@@ -1370,20 +1367,19 @@ export class AdminService {
   }
 
   async getReviewStats() {
-    const [total, visible, hidden, replied, pending, avgRating, ratingCounts] =
-      await Promise.all([
-        this.prisma.review.count(),
-        this.prisma.review.count({ where: { is_visible: true } }),
-        this.prisma.review.count({ where: { is_visible: false } }),
-        this.prisma.review.count({ where: { laundry_reply: { not: null } } }),
-        this.prisma.review.count({ where: { laundry_reply: null } }),
-        this.prisma.review.aggregate({ _avg: { rating: true } }),
-        this.prisma.review.groupBy({
-          by: ['rating'],
-          _count: { rating: true },
-          orderBy: { rating: 'desc' },
-        }),
-      ]);
+    const [total, visible, hidden, replied, pending, avgRating, ratingCounts] = await Promise.all([
+      this.prisma.review.count(),
+      this.prisma.review.count({ where: { is_visible: true } }),
+      this.prisma.review.count({ where: { is_visible: false } }),
+      this.prisma.review.count({ where: { laundry_reply: { not: null } } }),
+      this.prisma.review.count({ where: { laundry_reply: null } }),
+      this.prisma.review.aggregate({ _avg: { rating: true } }),
+      this.prisma.review.groupBy({
+        by: ['rating'],
+        _count: { rating: true },
+        orderBy: { rating: 'desc' },
+      }),
+    ]);
 
     // Convert rating counts to object
     const ratings = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
@@ -1503,8 +1499,7 @@ export class AdminService {
   private getPromoStatus(promo: any): string {
     const now = new Date();
     if (new Date(promo.valid_until) < now) return 'expired';
-    if (promo.usage_limit && promo.used_count >= promo.usage_limit)
-      return 'used_up';
+    if (promo.usage_limit && promo.used_count >= promo.usage_limit) return 'used_up';
     if (!promo.is_active) return 'inactive';
     return 'active';
   }
@@ -1649,40 +1644,33 @@ export class AdminService {
   async getPromoCodeStats() {
     const now = new Date();
 
-    const [
-      total,
-      active,
-      inactive,
-      expired,
-      totalDiscountGiven,
-      totalUsage,
-      topPromos,
-    ] = await Promise.all([
-      this.prisma.promoCode.count(),
-      this.prisma.promoCode.count({
-        where: { is_active: true, valid_until: { gte: now } },
-      }),
-      this.prisma.promoCode.count({ where: { is_active: false } }),
-      this.prisma.promoCode.count({ where: { valid_until: { lt: now } } }),
-      this.prisma.order.aggregate({
-        where: { promo_code: { not: null }, discount: { gt: 0 } },
-        _sum: { discount: true },
-      }),
-      this.prisma.promoCode.aggregate({
-        _sum: { used_count: true },
-      }),
-      this.prisma.promoCode.findMany({
-        orderBy: { used_count: 'desc' },
-        take: 5,
-        select: {
-          id: true,
-          code: true,
-          used_count: true,
-          discount_type: true,
-          discount_value: true,
-        },
-      }),
-    ]);
+    const [total, active, inactive, expired, totalDiscountGiven, totalUsage, topPromos] =
+      await Promise.all([
+        this.prisma.promoCode.count(),
+        this.prisma.promoCode.count({
+          where: { is_active: true, valid_until: { gte: now } },
+        }),
+        this.prisma.promoCode.count({ where: { is_active: false } }),
+        this.prisma.promoCode.count({ where: { valid_until: { lt: now } } }),
+        this.prisma.order.aggregate({
+          where: { promo_code: { not: null }, discount: { gt: 0 } },
+          _sum: { discount: true },
+        }),
+        this.prisma.promoCode.aggregate({
+          _sum: { used_count: true },
+        }),
+        this.prisma.promoCode.findMany({
+          orderBy: { used_count: 'desc' },
+          take: 5,
+          select: {
+            id: true,
+            code: true,
+            used_count: true,
+            discount_type: true,
+            discount_value: true,
+          },
+        }),
+      ]);
 
     return {
       total,
@@ -1774,5 +1762,887 @@ export class AdminService {
         total_discount: totalDiscount._sum.discount || 0,
       },
     };
+  }
+
+  // ==================== DASHBOARD ====================
+
+  private getDateRange(period: DashboardPeriod): { start: Date; end: Date } {
+    const end = new Date();
+    let start: Date;
+
+    switch (period) {
+      case DashboardPeriod.TODAY:
+        start = new Date();
+        start.setHours(0, 0, 0, 0);
+        break;
+      case DashboardPeriod.WEEK:
+        start = new Date();
+        start.setDate(start.getDate() - 7);
+        start.setHours(0, 0, 0, 0);
+        break;
+      case DashboardPeriod.MONTH:
+        start = new Date();
+        start.setMonth(start.getMonth() - 1);
+        start.setHours(0, 0, 0, 0);
+        break;
+      case DashboardPeriod.YEAR:
+        start = new Date();
+        start.setFullYear(start.getFullYear() - 1);
+        start.setHours(0, 0, 0, 0);
+        break;
+      default:
+        start = new Date();
+        start.setDate(start.getDate() - 7);
+        start.setHours(0, 0, 0, 0);
+    }
+
+    return { start, end };
+  }
+
+  private getPreviousDateRange(period: DashboardPeriod): {
+    start: Date;
+    end: Date;
+  } {
+    const current = this.getDateRange(period);
+    const duration = current.end.getTime() - current.start.getTime();
+
+    return {
+      start: new Date(current.start.getTime() - duration),
+      end: new Date(current.start.getTime()),
+    };
+  }
+
+  async getDashboardStats(query: DashboardQueryDto) {
+    const period = query.period || DashboardPeriod.WEEK;
+    const { start, end } = this.getDateRange(period);
+    const previous = this.getPreviousDateRange(period);
+
+    // Current period stats
+    const [
+      currentRevenue,
+      currentOrders,
+      currentCustomers,
+      currentLaundries,
+      previousRevenue,
+      previousOrders,
+      previousCustomers,
+      previousLaundries,
+    ] = await Promise.all([
+      // Current period
+      this.prisma.order.aggregate({
+        where: {
+          created_at: { gte: start, lte: end },
+          payment_status: 'COMPLETED',
+        },
+        _sum: { total_amount: true },
+      }),
+      this.prisma.order.count({
+        where: { created_at: { gte: start, lte: end } },
+      }),
+      this.prisma.user.count({
+        where: {
+          status: 'ACTIVE',
+          orders: { some: { created_at: { gte: start, lte: end } } },
+        },
+      }),
+      this.prisma.laundry.count({
+        where: { status: 'ACTIVE' },
+      }),
+      // Previous period
+      this.prisma.order.aggregate({
+        where: {
+          created_at: { gte: previous.start, lte: previous.end },
+          payment_status: 'COMPLETED',
+        },
+        _sum: { total_amount: true },
+      }),
+      this.prisma.order.count({
+        where: { created_at: { gte: previous.start, lte: previous.end } },
+      }),
+      this.prisma.user.count({
+        where: {
+          status: 'ACTIVE',
+          orders: {
+            some: { created_at: { gte: previous.start, lte: previous.end } },
+          },
+        },
+      }),
+      this.prisma.laundry.count({
+        where: {
+          status: 'ACTIVE',
+          created_at: { lte: previous.end },
+        },
+      }),
+    ]);
+
+    const calcChange = (current: number, previous: number): number => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return Number((((current - previous) / previous) * 100).toFixed(1));
+    };
+
+    const currentRevenueValue = currentRevenue._sum.total_amount || 0;
+    const previousRevenueValue = previousRevenue._sum.total_amount || 0;
+
+    return {
+      revenue: {
+        value: currentRevenueValue,
+        change: calcChange(currentRevenueValue, previousRevenueValue),
+        changeType: currentRevenueValue >= previousRevenueValue ? 'increase' : 'decrease',
+      },
+      orders: {
+        value: currentOrders,
+        change: calcChange(currentOrders, previousOrders),
+        changeType: currentOrders >= previousOrders ? 'increase' : 'decrease',
+      },
+      customers: {
+        value: currentCustomers,
+        change: calcChange(currentCustomers, previousCustomers),
+        changeType: currentCustomers >= previousCustomers ? 'increase' : 'decrease',
+      },
+      laundries: {
+        value: currentLaundries,
+        change: calcChange(currentLaundries, previousLaundries),
+        changeType: currentLaundries >= previousLaundries ? 'increase' : 'decrease',
+      },
+      period,
+      date_range: { start, end },
+    };
+  }
+
+  async getDashboardChartData(query: DashboardQueryDto) {
+    const period = query.period || DashboardPeriod.WEEK;
+    const { start, end } = this.getDateRange(period);
+
+    // Generate labels based on period
+    const labels: string[] = [];
+
+    switch (period) {
+      case DashboardPeriod.TODAY:
+        for (let i = 0; i < 24; i++) {
+          labels.push(`${i}:00`);
+        }
+        break;
+      case DashboardPeriod.WEEK: {
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const today = new Date();
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(today);
+          d.setDate(d.getDate() - i);
+          labels.push(days[d.getDay()]);
+        }
+        break;
+      }
+      case DashboardPeriod.MONTH:
+        for (let i = 30; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          labels.push(`${d.getDate()}/${d.getMonth() + 1}`);
+        }
+        break;
+      case DashboardPeriod.YEAR: {
+        const months = [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
+        ];
+        const currentMonth = new Date().getMonth();
+        for (let i = 11; i >= 0; i--) {
+          labels.push(months[(currentMonth - i + 12) % 12]);
+        }
+        break;
+      }
+    }
+
+    // Get orders within the date range
+    const orders = await this.prisma.order.findMany({
+      where: {
+        created_at: { gte: start, lte: end },
+      },
+      select: {
+        id: true,
+        total_amount: true,
+        payment_status: true,
+        created_at: true,
+      },
+    });
+
+    // Group data
+    const chartData = labels.map((label, index) => {
+      let matchingOrders: typeof orders = [];
+
+      if (period === DashboardPeriod.TODAY) {
+        matchingOrders = orders.filter((o) => {
+          const hour = new Date(o.created_at).getHours();
+          return hour === index;
+        });
+      } else if (period === DashboardPeriod.WEEK) {
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() - (6 - index));
+        matchingOrders = orders.filter((o) => {
+          const orderDate = new Date(o.created_at);
+          return orderDate.toDateString() === targetDate.toDateString();
+        });
+      } else if (period === DashboardPeriod.MONTH) {
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() - (30 - index));
+        matchingOrders = orders.filter((o) => {
+          const orderDate = new Date(o.created_at);
+          return orderDate.toDateString() === targetDate.toDateString();
+        });
+      } else if (period === DashboardPeriod.YEAR) {
+        const currentMonth = new Date().getMonth();
+        const targetMonth = (currentMonth - (11 - index) + 12) % 12;
+        const targetYear = new Date().getFullYear() - (currentMonth - (11 - index) < 0 ? 1 : 0);
+        matchingOrders = orders.filter((o) => {
+          const orderDate = new Date(o.created_at);
+          return orderDate.getMonth() === targetMonth && orderDate.getFullYear() === targetYear;
+        });
+      }
+
+      const revenue = matchingOrders
+        .filter((o) => o.payment_status === 'COMPLETED')
+        .reduce((sum, o) => sum + (o.total_amount || 0), 0);
+
+      return {
+        name: label,
+        revenue,
+        orders: matchingOrders.length,
+      };
+    });
+
+    return chartData;
+  }
+
+  async getDashboardOrderStatus(query: DashboardQueryDto) {
+    const period = query.period || DashboardPeriod.WEEK;
+    const { start, end } = this.getDateRange(period);
+
+    const [completed, processing, pending, cancelled, ready, outForDelivery] = await Promise.all([
+      this.prisma.order.count({
+        where: {
+          created_at: { gte: start, lte: end },
+          status: { in: ['COMPLETED', 'DELIVERED'] },
+        },
+      }),
+      this.prisma.order.count({
+        where: {
+          created_at: { gte: start, lte: end },
+          status: 'PROCESSING',
+        },
+      }),
+      this.prisma.order.count({
+        where: {
+          created_at: { gte: start, lte: end },
+          status: { in: ['PENDING', 'ACCEPTED'] },
+        },
+      }),
+      this.prisma.order.count({
+        where: {
+          created_at: { gte: start, lte: end },
+          status: 'CANCELLED',
+        },
+      }),
+      this.prisma.order.count({
+        where: {
+          created_at: { gte: start, lte: end },
+          status: 'READY',
+        },
+      }),
+      this.prisma.order.count({
+        where: {
+          created_at: { gte: start, lte: end },
+          status: 'OUT_FOR_DELIVERY',
+        },
+      }),
+    ]);
+
+    return [
+      { name: 'Completed', value: completed, color: '#22c55e' },
+      { name: 'Processing', value: processing, color: '#3b82f6' },
+      { name: 'Pending', value: pending, color: '#f59e0b' },
+      { name: 'Cancelled', value: cancelled, color: '#ef4444' },
+      { name: 'Ready', value: ready, color: '#8b5cf6' },
+      { name: 'Out for Delivery', value: outForDelivery, color: '#06b6d4' },
+    ];
+  }
+
+  async getDashboardRecentOrders(limit = 5) {
+    const orders = await this.prisma.order.findMany({
+      take: limit,
+      orderBy: { created_at: 'desc' },
+      select: {
+        id: true,
+        order_number: true,
+        total_amount: true,
+        status: true,
+        created_at: true,
+        customer: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        laundry: {
+          select: {
+            id: true,
+            laundry_name: true,
+          },
+        },
+      },
+    });
+
+    return orders.map((order) => ({
+      id: order.order_number,
+      customer: order.customer?.name || 'Unknown',
+      laundry: order.laundry?.laundry_name || 'Unknown',
+      amount: order.total_amount,
+      status: order.status,
+      time: order.created_at,
+    }));
+  }
+
+  async getDashboardTopLaundries(query: DashboardQueryDto, limit = 5) {
+    const period = query.period || DashboardPeriod.WEEK;
+    const { start, end } = this.getDateRange(period);
+
+    // Get laundries with their order stats
+    const laundries = await this.prisma.laundry.findMany({
+      where: { status: 'ACTIVE' },
+      select: {
+        id: true,
+        laundry_name: true,
+        rating: true,
+        orders: {
+          where: {
+            created_at: { gte: start, lte: end },
+            payment_status: 'COMPLETED',
+          },
+          select: {
+            id: true,
+            total_amount: true,
+          },
+        },
+      },
+    });
+
+    // Calculate stats and sort by revenue
+    const laundryStats = laundries
+      .map((laundry) => ({
+        id: laundry.id,
+        name: laundry.laundry_name || 'Unknown',
+        orders: laundry.orders.length,
+        revenue: laundry.orders.reduce((sum, order) => sum + (order.total_amount || 0), 0),
+        rating: laundry.rating,
+      }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, limit);
+
+    return laundryStats;
+  }
+
+  async getDashboardSummary(query: DashboardQueryDto) {
+    const [stats, chartData, orderStatus, recentOrders, topLaundries] = await Promise.all([
+      this.getDashboardStats(query),
+      this.getDashboardChartData(query),
+      this.getDashboardOrderStatus(query),
+      this.getDashboardRecentOrders(5),
+      this.getDashboardTopLaundries(query, 4),
+    ]);
+
+    return {
+      stats,
+      chart_data: chartData,
+      order_status: orderStatus,
+      recent_orders: recentOrders,
+      top_laundries: topLaundries,
+    };
+  }
+
+  // ==================== NOTIFICATIONS ====================
+
+  async getNotifications(query: AdminNotificationsQueryDto) {
+    const { page = 1, limit = 10, search, type, target } = query;
+    const skip = (page - 1) * limit;
+
+    // Build where clause
+    const where: Prisma.NotificationWhereInput = {};
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { body: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (type && type !== AdminNotificationType.ALL) {
+      where.type = type as any;
+    }
+
+    // Target filtering - check if notification has user_id or laundry_id
+    if (target === NotificationTarget.CUSTOMERS) {
+      where.user_id = { not: null };
+      where.laundry_id = null;
+    } else if (target === NotificationTarget.LAUNDRIES) {
+      where.laundry_id = { not: null };
+    }
+
+    // Get notifications grouped by title + body + type (to identify campaigns)
+    const [notifications, total] = await Promise.all([
+      this.prisma.notification.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          user: { select: { id: true, name: true } },
+          laundry: { select: { id: true, laundry_name: true } },
+        },
+      }),
+      this.prisma.notification.count({ where }),
+    ]);
+
+    return {
+      data: notifications.map((n) => ({
+        id: n.id,
+        title: n.title,
+        message: n.body,
+        type: n.type,
+        target: n.laundry_id ? 'LAUNDRIES' : n.user_id ? 'CUSTOMERS' : 'ALL_USERS',
+        recipient: n.user?.name || n.laundry?.laundry_name || 'Unknown',
+        is_read: n.is_read,
+        is_sent: n.is_sent,
+        sent_at: n.sent_at,
+        created_at: n.created_at,
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getNotificationCampaigns(query: AdminNotificationsQueryDto) {
+    const { page = 1, limit = 10, search, type } = query;
+    const skip = (page - 1) * limit;
+
+    // Get unique campaigns (grouped by title + body within same minute)
+    const campaigns = await this.prisma.$queryRaw<
+      Array<{
+        title: string;
+        body: string;
+        type: string;
+        sent_count: bigint;
+        read_count: bigint;
+        created_at: Date;
+        target: string;
+      }>
+    >`
+      SELECT
+        title,
+        body,
+        type,
+        COUNT(*) as sent_count,
+        SUM(CASE WHEN is_read = true THEN 1 ELSE 0 END) as read_count,
+        MIN(created_at) as created_at,
+        CASE
+          WHEN COUNT(laundry_id) > 0 AND COUNT(user_id) = 0 THEN 'LAUNDRIES'
+          WHEN COUNT(user_id) > 0 AND COUNT(laundry_id) = 0 THEN 'CUSTOMERS'
+          ELSE 'ALL_USERS'
+        END as target
+      FROM notifications
+      WHERE 1=1
+      ${search ? Prisma.sql`AND (title ILIKE ${`%${search}%`} OR body ILIKE ${`%${search}%`})` : Prisma.empty}
+      ${type && type !== AdminNotificationType.ALL ? Prisma.sql`AND type = ${type}::"NotificationType"` : Prisma.empty}
+      GROUP BY title, body, type, DATE_TRUNC('minute', created_at)
+      ORDER BY created_at DESC
+      LIMIT ${limit} OFFSET ${skip}
+    `;
+
+    // Get total count
+    const totalResult = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*) as count FROM (
+        SELECT title, body, type
+        FROM notifications
+        WHERE 1=1
+        ${search ? Prisma.sql`AND (title ILIKE ${`%${search}%`} OR body ILIKE ${`%${search}%`})` : Prisma.empty}
+        ${type && type !== AdminNotificationType.ALL ? Prisma.sql`AND type = ${type}::"NotificationType"` : Prisma.empty}
+        GROUP BY title, body, type, DATE_TRUNC('minute', created_at)
+      ) as campaigns
+    `;
+
+    const total = Number(totalResult[0]?.count || 0);
+
+    return {
+      data: campaigns.map((c, index) => ({
+        id: `campaign-${index}-${c.created_at.getTime()}`,
+        title: c.title,
+        message: c.body,
+        type: c.type,
+        target: c.target,
+        sent_count: Number(c.sent_count),
+        read_count: Number(c.read_count),
+        created_at: c.created_at,
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async sendNotification(dto: SendNotificationDto) {
+    const { title, message, type, target, image } = dto;
+
+    // Get target users based on target audience
+    let userIds: string[] = [];
+    let laundryIds: string[] = [];
+
+    if (target === NotificationTarget.CUSTOMERS || target === NotificationTarget.ALL_USERS) {
+      const users = await this.prisma.user.findMany({
+        where: { status: 'ACTIVE' },
+        select: { id: true },
+      });
+      userIds = users.map((u) => u.id);
+    }
+
+    if (target === NotificationTarget.LAUNDRIES || target === NotificationTarget.ALL_USERS) {
+      const laundries = await this.prisma.laundry.findMany({
+        where: { status: 'ACTIVE' },
+        select: { id: true },
+      });
+      laundryIds = laundries.map((l) => l.id);
+    }
+
+    // Create notifications for users
+    const userNotifications = userIds.map((userId) => ({
+      user_id: userId,
+      title,
+      body: message,
+      type: type as any,
+      image,
+      is_sent: true,
+      sent_at: new Date(),
+    }));
+
+    // Create notifications for laundries
+    const laundryNotifications = laundryIds.map((laundryId) => ({
+      laundry_id: laundryId,
+      title,
+      body: message,
+      type: type as any,
+      image,
+      is_sent: true,
+      sent_at: new Date(),
+    }));
+
+    // Bulk create notifications
+    const allNotifications = [...userNotifications, ...laundryNotifications];
+
+    if (allNotifications.length > 0) {
+      await this.prisma.notification.createMany({
+        data: allNotifications,
+      });
+    }
+
+    return {
+      sent_count: allNotifications.length,
+      user_count: userIds.length,
+      laundry_count: laundryIds.length,
+    };
+  }
+
+  async sendBulkNotification(dto: SendBulkNotificationDto) {
+    const { title, message, type, user_ids, image } = dto;
+
+    // Create notifications for specified users
+    const notifications = user_ids.map((userId) => ({
+      user_id: userId,
+      title,
+      body: message,
+      type: type as any,
+      image,
+      is_sent: true,
+      sent_at: new Date(),
+    }));
+
+    await this.prisma.notification.createMany({
+      data: notifications,
+    });
+
+    return {
+      sent_count: notifications.length,
+    };
+  }
+
+  async getNotificationStats() {
+    const [totalNotifications, totalSent, totalRead, typeBreakdown, recentCampaigns] =
+      await Promise.all([
+        this.prisma.notification.count(),
+        this.prisma.notification.count({ where: { is_sent: true } }),
+        this.prisma.notification.count({ where: { is_read: true } }),
+        this.prisma.notification.groupBy({
+          by: ['type'],
+          _count: { type: true },
+        }),
+        this.prisma.$queryRaw<
+          Array<{
+            title: string;
+            sent_count: bigint;
+            read_count: bigint;
+            created_at: Date;
+          }>
+        >`
+        SELECT
+          title,
+          COUNT(*) as sent_count,
+          SUM(CASE WHEN is_read = true THEN 1 ELSE 0 END) as read_count,
+          MIN(created_at) as created_at
+        FROM notifications
+        GROUP BY title, body, DATE_TRUNC('minute', created_at)
+        ORDER BY created_at DESC
+        LIMIT 5
+      `,
+      ]);
+
+    // Calculate total reach (unique users + laundries)
+    const [uniqueUsers, uniqueLaundries] = await Promise.all([
+      this.prisma.notification.groupBy({
+        by: ['user_id'],
+        where: { user_id: { not: null } },
+      }),
+      this.prisma.notification.groupBy({
+        by: ['laundry_id'],
+        where: { laundry_id: { not: null } },
+      }),
+    ]);
+
+    const types: Record<string, number> = {};
+    typeBreakdown.forEach((t) => {
+      types[t.type] = t._count.type;
+    });
+
+    return {
+      total: totalNotifications,
+      sent: totalSent,
+      read: totalRead,
+      read_rate: totalSent > 0 ? Math.round((totalRead / totalSent) * 100) : 0,
+      total_reach: uniqueUsers.length + uniqueLaundries.length,
+      types,
+      recent_campaigns: recentCampaigns.map((c) => ({
+        title: c.title,
+        sent_count: Number(c.sent_count),
+        read_count: Number(c.read_count),
+        created_at: c.created_at,
+      })),
+    };
+  }
+
+  async deleteNotification(id: string) {
+    const notification = await this.prisma.notification.findUnique({
+      where: { id },
+    });
+
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    await this.prisma.notification.delete({ where: { id } });
+
+    return { message: 'Notification deleted successfully' };
+  }
+
+  // ==================== SETTINGS ====================
+
+  // Default settings values
+  private readonly defaultSettings: Record<string, any> = {
+    // General
+    app_name: 'E-Laundry',
+    support_email: 'support@elaundry.pk',
+    support_phone: '+92 300 1234567',
+    currency: 'PKR',
+    timezone: 'Asia/Karachi',
+    maintenance_mode: false,
+    // Pricing
+    delivery_fee: 100,
+    free_delivery_threshold: 1000,
+    express_multiplier: 1.5,
+    platform_commission: 15,
+    tax_percentage: 0,
+    // Delivery
+    default_pickup_radius: 10,
+    max_pickup_radius: 25,
+    min_order_amount: 200,
+    standard_delivery_days: 2,
+    express_delivery_days: 1,
+    // Notifications
+    notify_new_order: true,
+    notify_order_status: true,
+    notify_promotional: true,
+    notify_system: true,
+    // Security
+    otp_expiry_minutes: 5,
+    max_login_attempts: 5,
+    session_timeout_hours: 24,
+    require_phone_verification: true,
+    // Appearance
+    primary_color: '#3b82f6',
+    secondary_color: '#1e293b',
+    logo_url: '',
+  };
+
+  async getAllSettings() {
+    const dbSettings = await this.prisma.appSetting.findMany();
+
+    // Merge defaults with database values
+    const settings: Record<string, any> = { ...this.defaultSettings };
+
+    dbSettings.forEach((setting) => {
+      settings[setting.key] = setting.value;
+    });
+
+    return settings;
+  }
+
+  async getSetting(key: string) {
+    const setting = await this.prisma.appSetting.findUnique({
+      where: { key },
+    });
+
+    if (setting) {
+      return { key, value: setting.value };
+    }
+
+    // Return default if exists
+    if (key in this.defaultSettings) {
+      return { key, value: this.defaultSettings[key] };
+    }
+
+    throw new NotFoundException(`Setting "${key}" not found`);
+  }
+
+  async updateSetting(key: string, value: any) {
+    // Upsert the setting
+    const setting = await this.prisma.appSetting.upsert({
+      where: { key },
+      update: { value },
+      create: { key, value },
+    });
+
+    return {
+      key: setting.key,
+      value: setting.value,
+      updated_at: setting.updated_at,
+    };
+  }
+
+  async updateSettingsBulk(dto: BulkUpdateSettingsDto) {
+    const { settings } = dto;
+    const results: Array<{ key: string; value: any }> = [];
+
+    // Update each setting
+    for (const [key, value] of Object.entries(settings)) {
+      const setting = await this.prisma.appSetting.upsert({
+        where: { key },
+        update: { value },
+        create: { key, value },
+      });
+      results.push({ key: setting.key, value: setting.value });
+    }
+
+    return {
+      updated: results.length,
+      settings: results,
+    };
+  }
+
+  async deleteSetting(key: string) {
+    const setting = await this.prisma.appSetting.findUnique({
+      where: { key },
+    });
+
+    if (!setting) {
+      throw new NotFoundException(`Setting "${key}" not found`);
+    }
+
+    await this.prisma.appSetting.delete({ where: { key } });
+
+    return { message: `Setting "${key}" deleted successfully` };
+  }
+
+  async resetSettings() {
+    // Delete all settings to reset to defaults
+    await this.prisma.appSetting.deleteMany();
+
+    return {
+      message: 'All settings reset to defaults',
+      settings: this.defaultSettings,
+    };
+  }
+
+  async getSettingsByCategory(category: string) {
+    const categoryKeys: Record<string, string[]> = {
+      general: [
+        'app_name',
+        'support_email',
+        'support_phone',
+        'currency',
+        'timezone',
+        'maintenance_mode',
+      ],
+      pricing: [
+        'delivery_fee',
+        'free_delivery_threshold',
+        'express_multiplier',
+        'platform_commission',
+        'tax_percentage',
+      ],
+      delivery: [
+        'default_pickup_radius',
+        'max_pickup_radius',
+        'min_order_amount',
+        'standard_delivery_days',
+        'express_delivery_days',
+      ],
+      notifications: [
+        'notify_new_order',
+        'notify_order_status',
+        'notify_promotional',
+        'notify_system',
+      ],
+      security: [
+        'otp_expiry_minutes',
+        'max_login_attempts',
+        'session_timeout_hours',
+        'require_phone_verification',
+      ],
+      appearance: ['primary_color', 'secondary_color', 'logo_url'],
+    };
+
+    const keys = categoryKeys[category];
+    if (!keys) {
+      throw new NotFoundException(`Category "${category}" not found`);
+    }
+
+    const allSettings = await this.getAllSettings();
+    const categorySettings: Record<string, any> = {};
+
+    keys.forEach((key) => {
+      categorySettings[key] = allSettings[key];
+    });
+
+    return categorySettings;
   }
 }
