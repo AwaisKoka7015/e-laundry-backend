@@ -9,12 +9,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiQuery,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import {
   AdminUsersQueryDto,
@@ -35,7 +30,11 @@ export class AdminController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
-  @ApiQuery({ name: 'status', required: false, enum: ['all', 'ACTIVE', 'SUSPENDED', 'PENDING_LOCATION'] })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['all', 'ACTIVE', 'SUSPENDED', 'PENDING_LOCATION'],
+  })
   @ApiQuery({ name: 'city', required: false, type: String })
   @ApiResponse({ status: 200, description: 'List of customers' })
   async getUsers(@Query() query: AdminUsersQueryDto) {
@@ -74,10 +73,7 @@ export class AdminController {
   @ApiOperation({ summary: 'Update customer status (suspend/activate)' })
   @ApiResponse({ status: 200, description: 'Status updated' })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  async updateUserStatus(
-    @Param('id') id: string,
-    @Body() dto: UpdateUserStatusDto,
-  ) {
+  async updateUserStatus(@Param('id') id: string, @Body() dto: UpdateUserStatusDto) {
     const data = await this.adminService.updateUserStatus(id, dto.status);
     return {
       success: true,
@@ -139,6 +135,7 @@ export class AdminController {
   @ApiResponse({ status: 200, description: 'List of laundries' })
   async getLaundries(@Query() query: AdminLaundriesQueryDto) {
     const data = await this.adminService.getLaundries(query);
+    console.log('AdminController -> getLaundries -> data', data);
     return {
       success: true,
       data: { laundries: data.laundries },
@@ -173,10 +170,7 @@ export class AdminController {
   @ApiOperation({ summary: 'Update laundry status (suspend/activate)' })
   @ApiResponse({ status: 200, description: 'Status updated' })
   @ApiResponse({ status: 404, description: 'Laundry not found' })
-  async updateLaundryStatus(
-    @Param('id') id: string,
-    @Body() dto: UpdateLaundryStatusDto,
-  ) {
+  async updateLaundryStatus(@Param('id') id: string, @Body() dto: UpdateLaundryStatusDto) {
     const data = await this.adminService.updateLaundryStatus(id, dto.status);
     return {
       success: true,
