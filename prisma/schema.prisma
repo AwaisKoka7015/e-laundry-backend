@@ -188,6 +188,12 @@ model Laundry {
   reviews          Review[]
   notifications    Notification[]
 
+  // Indexes for optimized queries
+  @@index([status, rating(sort: Desc)])
+  @@index([status, city])
+  @@index([status, total_reviews(sort: Desc)])
+  @@index([status, is_verified])
+  @@index([latitude, longitude])
   @@map("laundries")
 }
 
