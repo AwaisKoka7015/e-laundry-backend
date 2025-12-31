@@ -55,7 +55,7 @@ export class AdminController {
   @ApiQuery({
     name: 'status',
     required: false,
-    enum: ['all', 'ACTIVE', 'SUSPENDED', 'PENDING_LOCATION'],
+    enum: ['all', 'PENDING', 'ACTIVE', 'BLOCKED'],
   })
   @ApiQuery({ name: 'city', required: false, type: String })
   @ApiResponse({ status: 200, description: 'List of customers' })
@@ -99,7 +99,7 @@ export class AdminController {
     const data = await this.adminService.updateUserStatus(id, dto.status);
     return {
       success: true,
-      message: `Customer ${dto.status === 'SUSPENDED' ? 'suspended' : 'activated'} successfully`,
+      message: `Customer ${dto.status === 'BLOCKED' ? 'blocked' : 'activated'} successfully`,
       data,
     };
   }
@@ -146,7 +146,7 @@ export class AdminController {
   @ApiQuery({
     name: 'status',
     required: false,
-    enum: ['all', 'ACTIVE', 'SUSPENDED', 'PENDING_LOCATION'],
+    enum: ['all', 'PENDING', 'ACTIVE', 'BLOCKED'],
   })
   @ApiQuery({
     name: 'verified',
@@ -196,7 +196,7 @@ export class AdminController {
     const data = await this.adminService.updateLaundryStatus(id, dto.status);
     return {
       success: true,
-      message: `Laundry ${dto.status === 'SUSPENDED' ? 'suspended' : 'activated'} successfully`,
+      message: `Laundry ${dto.status === 'BLOCKED' ? 'blocked' : 'activated'} successfully`,
       data,
     };
   }
@@ -223,6 +223,50 @@ export class AdminController {
     return {
       success: true,
       message: 'Laundry activated and verified successfully',
+      data,
+    };
+  }
+
+  // ==================== LAUNDRY SETUP ====================
+
+  @Get('laundries/pending-setup')
+  @ApiOperation({ summary: 'Get pending laundries that need setup' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'List of pending laundries' })
+  async getPendingLaundriesForSetup(@Query('page') page?: number, @Query('limit') limit?: number) {
+    const data = await this.adminService.getPendingLaundriesForSetup(page, limit);
+    return {
+      success: true,
+      data: { laundries: data.laundries },
+      pagination: data.pagination,
+    };
+  }
+
+  @Post('laundries/:id/setup')
+  @ApiOperation({ summary: 'Setup laundry with all active categories and clothing items' })
+  @ApiResponse({ status: 200, description: 'Laundry set up successfully' })
+  @ApiResponse({ status: 404, description: 'Laundry not found' })
+  @ApiResponse({ status: 409, description: 'Laundry already set up or no categories/items' })
+  async setupLaundry(@Param('id') id: string) {
+    // TODO: Get admin ID from JWT token when auth is implemented
+    const adminId = 'admin';
+    const data = await this.adminService.setupLaundry(id, adminId);
+    return {
+      success: true,
+      message: `Laundry set up with ${data.total_services} services and ${data.total_pricing} pricing entries. Will be approved in 2 hours.`,
+      data,
+    };
+  }
+
+  @Post('laundries/approve-pending')
+  @ApiOperation({ summary: 'Approve all laundries set up 2+ hours ago (cron job endpoint)' })
+  @ApiResponse({ status: 200, description: 'Laundries approved' })
+  async approveSetupLaundries() {
+    const data = await this.adminService.approveSetupLaundries();
+    return {
+      success: true,
+      message: `${data.approved_count} laundries approved`,
       data,
     };
   }

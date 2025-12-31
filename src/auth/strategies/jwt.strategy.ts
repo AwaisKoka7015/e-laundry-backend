@@ -37,23 +37,23 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         where: { id: payload.sub },
       });
 
-      if (!user || user.status === 'DELETED' || user.status === 'SUSPENDED') {
-        throw new UnauthorizedException('User not found or inactive');
+      if (!user || user.status === 'BLOCKED') {
+        throw new UnauthorizedException('User not found or blocked');
       }
     } else if (payload.role === 'LAUNDRY') {
       const laundry = await this.prisma.laundry.findUnique({
         where: { id: payload.sub },
       });
 
-      if (!laundry || laundry.status === 'DELETED' || laundry.status === 'SUSPENDED') {
-        throw new UnauthorizedException('Laundry not found or inactive');
+      if (!laundry || laundry.status === 'BLOCKED') {
+        throw new UnauthorizedException('Laundry not found or blocked');
       }
     } else if (payload.role === 'DELIVERY_PARTNER') {
       const partner = await this.prisma.deliveryPartner.findUnique({
         where: { id: payload.sub },
       });
 
-      if (!partner || partner.status === 'INACTIVE' || partner.status === 'SUSPENDED') {
+      if (!partner || partner.status === 'INACTIVE') {
         throw new UnauthorizedException('Delivery partner not found or inactive');
       }
     }

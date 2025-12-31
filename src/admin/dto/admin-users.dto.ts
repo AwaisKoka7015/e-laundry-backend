@@ -4,11 +4,9 @@ import { PaginationQueryDto } from '../../common';
 
 export enum UserStatusFilter {
   ALL = 'all',
+  PENDING = 'PENDING',
   ACTIVE = 'ACTIVE',
-  SUSPENDED = 'SUSPENDED',
-  PENDING_LOCATION = 'PENDING_LOCATION',
-  PENDING_ROLE = 'PENDING_ROLE',
-  DELETED = 'DELETED',
+  BLOCKED = 'BLOCKED',
 }
 
 export class AdminUsersQueryDto extends PaginationQueryDto {
@@ -29,7 +27,7 @@ export class AdminUsersQueryDto extends PaginationQueryDto {
 }
 
 export class UpdateUserStatusDto {
-  @ApiPropertyOptional({ enum: ['ACTIVE', 'SUSPENDED'] })
-  @IsEnum(['ACTIVE', 'SUSPENDED'])
-  status: 'ACTIVE' | 'SUSPENDED';
+  @ApiPropertyOptional({ enum: ['ACTIVE', 'BLOCKED'] })
+  @IsEnum(['ACTIVE', 'BLOCKED'])
+  status: 'ACTIVE' | 'BLOCKED';
 }
