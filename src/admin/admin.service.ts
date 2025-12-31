@@ -171,7 +171,7 @@ export class AdminService {
     };
   }
 
-  async updateUserStatus(id: string, status: 'ACTIVE' | 'SUSPENDED') {
+  async updateUserStatus(id: string, status: 'ACTIVE' | 'BLOCKED') {
     const user = await this.prisma.user.findUnique({ where: { id } });
 
     if (!user) {
@@ -193,10 +193,10 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
 
-    // Soft delete by setting status to DELETED
+    // Soft delete by setting status to BLOCKED
     await this.prisma.user.update({
       where: { id },
-      data: { status: 'DELETED' },
+      data: { status: 'BLOCKED' },
     });
 
     return { message: 'User deleted successfully' };
@@ -240,18 +240,18 @@ export class AdminService {
   // ==================== STATS ====================
 
   async getUserStats() {
-    const [total, active, suspended, pendingLocation] = await Promise.all([
-      this.prisma.user.count({ where: { status: { not: 'DELETED' } } }),
+    const [total, pending, active, blocked] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.user.count({ where: { status: 'PENDING' } }),
       this.prisma.user.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.user.count({ where: { status: 'SUSPENDED' } }),
-      this.prisma.user.count({ where: { status: 'PENDING_LOCATION' } }),
+      this.prisma.user.count({ where: { status: 'BLOCKED' } }),
     ]);
 
     return {
       total,
+      pending,
       active,
-      suspended,
-      pending_location: pendingLocation,
+      blocked,
     };
   }
 
@@ -262,9 +262,7 @@ export class AdminService {
     const skip = (page - 1) * limit;
 
     // Build where clause
-    const where: Prisma.LaundryWhereInput = {
-      status: { not: 'DELETED' },
-    };
+    const where: Prisma.LaundryWhereInput = {};
 
     // Status filter
     if (status && status !== LaundryStatusFilter.ALL) {
@@ -380,7 +378,7 @@ export class AdminService {
     };
   }
 
-  async updateLaundryStatus(id: string, status: 'ACTIVE' | 'SUSPENDED') {
+  async updateLaundryStatus(id: string, status: 'ACTIVE' | 'BLOCKED') {
     const laundry = await this.prisma.laundry.findUnique({ where: { id } });
 
     if (!laundry) {
@@ -412,6 +410,8 @@ export class AdminService {
       data: {
         status: 'ACTIVE',
         is_verified: true,
+        is_open: true,
+        approved_at: new Date(),
       },
     });
 
@@ -440,10 +440,10 @@ export class AdminService {
       throw new NotFoundException('Laundry not found');
     }
 
-    // Soft delete
+    // Soft delete by blocking
     await this.prisma.laundry.update({
       where: { id },
-      data: { status: 'DELETED' },
+      data: { status: 'BLOCKED' },
     });
 
     return { message: 'Laundry deleted successfully' };
@@ -485,26 +485,219 @@ export class AdminService {
   }
 
   async getLaundryStats() {
-    const [total, active, suspended, verified, unverified, pendingLocation] = await Promise.all([
-      this.prisma.laundry.count({ where: { status: { not: 'DELETED' } } }),
-      this.prisma.laundry.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.laundry.count({ where: { status: 'SUSPENDED' } }),
-      this.prisma.laundry.count({
-        where: { is_verified: true, status: { not: 'DELETED' } },
-      }),
-      this.prisma.laundry.count({
-        where: { is_verified: false, status: { not: 'DELETED' } },
-      }),
-      this.prisma.laundry.count({ where: { status: 'PENDING_LOCATION' } }),
-    ]);
+    const [total, pending, active, blocked, verified, unverified, pendingSetup] = await Promise.all(
+      [
+        this.prisma.laundry.count(),
+        this.prisma.laundry.count({ where: { status: 'PENDING' } }),
+        this.prisma.laundry.count({ where: { status: 'ACTIVE' } }),
+        this.prisma.laundry.count({ where: { status: 'BLOCKED' } }),
+        this.prisma.laundry.count({ where: { is_verified: true } }),
+        this.prisma.laundry.count({ where: { is_verified: false } }),
+        // Pending laundries that have NOT been set up yet (no setup_at)
+        this.prisma.laundry.count({ where: { status: 'PENDING', setup_at: null } }),
+      ],
+    );
 
     return {
       total,
+      pending,
       active,
-      suspended,
+      blocked,
       verified,
       unverified,
-      pending_location: pendingLocation,
+      pending_setup: pendingSetup,
+    };
+  }
+
+  // Get pending laundries for setup page
+  async getPendingLaundriesForSetup(page = 1, limit = 10) {
+    const skip = (page - 1) * limit;
+
+    const [laundries, total] = await Promise.all([
+      this.prisma.laundry.findMany({
+        where: {
+          status: 'PENDING',
+          setup_at: null, // Not yet set up by admin
+        },
+        skip,
+        take: limit,
+        orderBy: { created_at: 'desc' },
+        select: {
+          id: true,
+          laundry_name: true,
+          phone_number: true,
+          email: true,
+          laundry_logo: true,
+          shop_images: true,
+          city: true,
+          address_text: true,
+          latitude: true,
+          longitude: true,
+          created_at: true,
+        },
+      }),
+      this.prisma.laundry.count({
+        where: { status: 'PENDING', setup_at: null },
+      }),
+    ]);
+
+    return {
+      laundries,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  // Setup laundry with all active categories and clothing items
+  async setupLaundry(laundryId: string, adminId: string) {
+    // 1. Get the laundry
+    const laundry = await this.prisma.laundry.findUnique({
+      where: { id: laundryId },
+    });
+
+    if (!laundry) {
+      throw new NotFoundException('Laundry not found');
+    }
+
+    if (laundry.status !== 'PENDING') {
+      throw new ConflictException('Laundry is not in pending status');
+    }
+
+    if (laundry.setup_at) {
+      throw new ConflictException('Laundry has already been set up');
+    }
+
+    // 2. Get all active categories
+    const categories = await this.prisma.serviceCategory.findMany({
+      where: { is_active: true },
+      orderBy: { sort_order: 'asc' },
+    });
+
+    if (categories.length === 0) {
+      throw new ConflictException('No active categories found. Please create categories first.');
+    }
+
+    // 3. Get all active clothing items
+    const clothingItems = await this.prisma.clothingItem.findMany({
+      where: { is_active: true },
+      orderBy: [{ type: 'asc' }, { sort_order: 'asc' }],
+    });
+
+    if (clothingItems.length === 0) {
+      throw new ConflictException(
+        'No active clothing items found. Please create clothing items first.',
+      );
+    }
+
+    // 4. Create services and pricing in a transaction
+    const result = await this.prisma.$transaction(async (tx) => {
+      const servicesCreated: any[] = [];
+
+      // Create a service for each category
+      for (const category of categories) {
+        // Create the laundry service
+        const service = await tx.laundryService.create({
+          data: {
+            laundry_id: laundryId,
+            category_id: category.id,
+            name: category.name,
+            description: category.description || `${category.name} service`,
+            base_price: 0, // Will use item-specific pricing
+            price_unit: 'PER_PIECE',
+            estimated_hours: 24,
+            is_available: true,
+          },
+        });
+
+        // Create pricing for each clothing item
+        const pricingData = clothingItems.map((item) => ({
+          laundry_service_id: service.id,
+          clothing_item_id: item.id,
+          price: 0, // Default price - laundry owner can update later
+          express_price: 0,
+          price_unit: 'PER_PIECE' as const,
+          is_available: true,
+        }));
+
+        await tx.servicePricing.createMany({
+          data: pricingData,
+        });
+
+        servicesCreated.push({
+          ...service,
+          category_name: category.name,
+          pricing_count: pricingData.length,
+        });
+      }
+
+      // 5. Update laundry with setup info
+      const updatedLaundry = await tx.laundry.update({
+        where: { id: laundryId },
+        data: {
+          setup_at: new Date(),
+          setup_by: adminId,
+          services_count: servicesCreated.length,
+        },
+      });
+
+      return {
+        laundry: updatedLaundry,
+        services: servicesCreated,
+        total_services: servicesCreated.length,
+        total_pricing: servicesCreated.length * clothingItems.length,
+      };
+    });
+
+    return result;
+  }
+
+  // Approve laundries that have been set up for more than 2 hours (called by cron)
+  async approveSetupLaundries() {
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+    // Find laundries that:
+    // - Are in PENDING status
+    // - Have been set up (setup_at is not null)
+    // - Were set up more than 2 hours ago
+    // - Have not been approved yet (approved_at is null)
+    const laundriesToApprove = await this.prisma.laundry.findMany({
+      where: {
+        status: 'PENDING',
+        setup_at: { not: null, lte: twoHoursAgo },
+        approved_at: null,
+      },
+    });
+
+    if (laundriesToApprove.length === 0) {
+      return { approved_count: 0, laundries: [] };
+    }
+
+    // Approve all eligible laundries
+    const approvedLaundries = await this.prisma.$transaction(
+      laundriesToApprove.map((laundry) =>
+        this.prisma.laundry.update({
+          where: { id: laundry.id },
+          data: {
+            status: 'ACTIVE',
+            is_verified: true,
+            is_open: true, // Auto-open the shop
+            approved_at: new Date(),
+          },
+        }),
+      ),
+    );
+
+    return {
+      approved_count: approvedLaundries.length,
+      laundries: approvedLaundries.map((l) => ({
+        id: l.id,
+        laundry_name: l.laundry_name,
+        phone_number: l.phone_number,
+      })),
     };
   }
 

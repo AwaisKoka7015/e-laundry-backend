@@ -4,9 +4,9 @@ import { PaginationQueryDto } from '../../common';
 
 export enum LaundryStatusFilter {
   ALL = 'all',
+  PENDING = 'PENDING',
   ACTIVE = 'ACTIVE',
-  SUSPENDED = 'SUSPENDED',
-  PENDING_LOCATION = 'PENDING_LOCATION',
+  BLOCKED = 'BLOCKED',
 }
 
 export enum LaundryVerifiedFilter {
@@ -38,7 +38,7 @@ export class AdminLaundriesQueryDto extends PaginationQueryDto {
 }
 
 export class UpdateLaundryStatusDto {
-  @ApiPropertyOptional({ enum: ['ACTIVE', 'SUSPENDED'] })
-  @IsEnum(['ACTIVE', 'SUSPENDED'])
-  status: 'ACTIVE' | 'SUSPENDED';
+  @ApiPropertyOptional({ enum: ['ACTIVE', 'BLOCKED'] })
+  @IsEnum(['ACTIVE', 'BLOCKED'])
+  status: 'ACTIVE' | 'BLOCKED';
 }

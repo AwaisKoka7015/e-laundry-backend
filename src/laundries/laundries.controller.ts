@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Put, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { LaundriesService } from './laundries.service';
 import {
@@ -183,6 +183,38 @@ export class LaundriesController {
     };
   }
 
+  @Get('laundries/:id/status')
+  @ApiTags('Laundries')
+  @ApiOperation({
+    summary: 'Get laundry status (for Flutter app)',
+    description:
+      'Returns is_open and status for a specific laundry. Useful to check if laundry is currently available.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Laundry status',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          id: 'uuid',
+          laundry_name: 'Clean & Fresh',
+          is_open: true,
+          status: 'ACTIVE',
+          is_available: true,
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Laundry not found' })
+  async getLaundryStatus(@Param('id') id: string) {
+    const data = await this.laundriesService.getLaundryStatus(id);
+    return {
+      success: true,
+      data,
+    };
+  }
+
   @Get('laundries/:id')
   @ApiTags('Laundries')
   @ApiOperation({ summary: 'Get laundry details by ID' })
@@ -213,6 +245,40 @@ export class LaundriesController {
     return {
       success: true,
       message: 'Profile updated successfully',
+      data,
+    };
+  }
+
+  @Patch('laundry/toggle-open')
+  @ApiTags('Laundries')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('LAUNDRY')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Toggle shop open/close (Laundry owner only)',
+    description:
+      'Toggle the shop open/close status. Optionally pass is_open to set specific value.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Shop status updated',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          is_open: true,
+          message: 'Shop is now open',
+        },
+      },
+    },
+  })
+  async toggleShopOpen(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() body: { is_open?: boolean },
+  ) {
+    const data = await this.laundriesService.toggleShopOpen(user.sub, body?.is_open);
+    return {
+      success: true,
       data,
     };
   }

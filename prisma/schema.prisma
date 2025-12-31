@@ -30,11 +30,9 @@ enum Gender {
 }
 
 enum AccountStatus {
-  PENDING_ROLE
-  PENDING_LOCATION
-  ACTIVE
-  SUSPENDED
-  DELETED
+  PENDING     // Waiting for admin review/setup
+  ACTIVE      // Approved and visible to customers
+  BLOCKED     // Blocked by admin
 }
 
 enum ClothingType {
@@ -125,7 +123,7 @@ model User {
   avatar         String?
   gender         Gender?
   role           Role          @default(CUSTOMER)
-  status         AccountStatus @default(PENDING_LOCATION)
+  status         AccountStatus @default(PENDING)
   
   latitude       Float?
   longitude      Float?
@@ -159,7 +157,7 @@ model Laundry {
   laundry_logo     String?
   shop_images      Json?         // Array of shop image URLs
   role             Role          @default(LAUNDRY)
-  status           AccountStatus @default(PENDING_LOCATION)
+  status           AccountStatus @default(PENDING)
 
   latitude         Float?
   longitude        Float?
@@ -177,11 +175,17 @@ model Laundry {
   
   fcm_token        String?
   is_verified      Boolean       @default(false)
-  
+  is_open          Boolean       @default(false)  // Shop open/close (controlled by laundry)
+
+  // Admin setup tracking
+  setup_at         DateTime?     // When admin clicked "Set Laundry"
+  setup_by         String?       // Admin ID who set up
+  approved_at      DateTime?     // When cron job approved (2 hours after setup)
+
   created_at       DateTime      @default(now())
   updated_at       DateTime      @updatedAt
   last_login       DateTime?
-  
+
   refresh_tokens   RefreshToken[]
   services         LaundryService[]
   orders           Order[]
@@ -193,7 +197,9 @@ model Laundry {
   @@index([status, city])
   @@index([status, total_reviews(sort: Desc)])
   @@index([status, is_verified])
+  @@index([status, is_open])              // For filtering open laundries
   @@index([latitude, longitude])
+  @@index([status, setup_at, approved_at]) // For cron job approval query
   @@map("laundries")
 }
 
