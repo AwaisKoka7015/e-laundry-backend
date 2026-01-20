@@ -35,7 +35,7 @@ import {
   SendBulkNotificationDto,
   BulkUpdateSettingsDto,
 } from './dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, AccountStatus } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
@@ -180,7 +180,7 @@ export class AdminService {
 
     const updated = await this.prisma.user.update({
       where: { id },
-      data: { status },
+      data: { status: status === 'ACTIVE' ? AccountStatus.ACTIVE : AccountStatus.SUSPENDED },
     });
 
     return updated;
@@ -196,7 +196,7 @@ export class AdminService {
     // Soft delete by setting status to DELETED
     await this.prisma.user.update({
       where: { id },
-      data: { status: 'DELETED' },
+      data: { status: AccountStatus.DELETED },
     });
 
     return { message: 'User deleted successfully' };
@@ -241,10 +241,10 @@ export class AdminService {
 
   async getUserStats() {
     const [total, active, suspended, pendingLocation] = await Promise.all([
-      this.prisma.user.count({ where: { status: { not: 'DELETED' } } }),
-      this.prisma.user.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.user.count({ where: { status: 'SUSPENDED' } }),
-      this.prisma.user.count({ where: { status: 'PENDING_LOCATION' } }),
+      this.prisma.user.count({ where: { status: { not: AccountStatus.DELETED } } }),
+      this.prisma.user.count({ where: { status: AccountStatus.ACTIVE } }),
+      this.prisma.user.count({ where: { status: AccountStatus.SUSPENDED } }),
+      this.prisma.user.count({ where: { status: AccountStatus.PENDING_LOCATION } }),
     ]);
 
     return {
@@ -263,7 +263,7 @@ export class AdminService {
 
     // Build where clause
     const where: Prisma.LaundryWhereInput = {
-      status: { not: 'DELETED' },
+      status: { not: AccountStatus.DELETED },
     };
 
     // Status filter
@@ -389,7 +389,7 @@ export class AdminService {
 
     const updated = await this.prisma.laundry.update({
       where: { id },
-      data: { status },
+      data: { status: status === 'ACTIVE' ? AccountStatus.ACTIVE : AccountStatus.SUSPENDED },
     });
 
     return updated;
@@ -402,7 +402,7 @@ export class AdminService {
       throw new NotFoundException('Laundry not found');
     }
 
-    if (laundry.status === 'ACTIVE') {
+    if (laundry.status === AccountStatus.ACTIVE) {
       return { ...laundry, message: 'Laundry is already active' };
     }
 
@@ -410,7 +410,7 @@ export class AdminService {
     const updated = await this.prisma.laundry.update({
       where: { id },
       data: {
-        status: 'ACTIVE',
+        status: AccountStatus.ACTIVE,
         is_verified: true,
       },
     });
@@ -443,7 +443,7 @@ export class AdminService {
     // Soft delete
     await this.prisma.laundry.update({
       where: { id },
-      data: { status: 'DELETED' },
+      data: { status: AccountStatus.DELETED },
     });
 
     return { message: 'Laundry deleted successfully' };
@@ -486,16 +486,16 @@ export class AdminService {
 
   async getLaundryStats() {
     const [total, active, suspended, verified, unverified, pendingLocation] = await Promise.all([
-      this.prisma.laundry.count({ where: { status: { not: 'DELETED' } } }),
-      this.prisma.laundry.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.laundry.count({ where: { status: 'SUSPENDED' } }),
+      this.prisma.laundry.count({ where: { status: { not: AccountStatus.DELETED } } }),
+      this.prisma.laundry.count({ where: { status: AccountStatus.ACTIVE } }),
+      this.prisma.laundry.count({ where: { status: AccountStatus.SUSPENDED } }),
       this.prisma.laundry.count({
-        where: { is_verified: true, status: { not: 'DELETED' } },
+        where: { is_verified: true, status: { not: AccountStatus.DELETED } },
       }),
       this.prisma.laundry.count({
-        where: { is_verified: false, status: { not: 'DELETED' } },
+        where: { is_verified: false, status: { not: AccountStatus.DELETED } },
       }),
-      this.prisma.laundry.count({ where: { status: 'PENDING_LOCATION' } }),
+      this.prisma.laundry.count({ where: { status: AccountStatus.PENDING_LOCATION } }),
     ]);
 
     return {
@@ -1841,12 +1841,12 @@ export class AdminService {
       }),
       this.prisma.user.count({
         where: {
-          status: 'ACTIVE',
+          status: AccountStatus.ACTIVE,
           orders: { some: { created_at: { gte: start, lte: end } } },
         },
       }),
       this.prisma.laundry.count({
-        where: { status: 'ACTIVE' },
+        where: { status: AccountStatus.ACTIVE },
       }),
       // Previous period
       this.prisma.order.aggregate({
@@ -1861,7 +1861,7 @@ export class AdminService {
       }),
       this.prisma.user.count({
         where: {
-          status: 'ACTIVE',
+          status: AccountStatus.ACTIVE,
           orders: {
             some: { created_at: { gte: previous.start, lte: previous.end } },
           },
@@ -1869,7 +1869,7 @@ export class AdminService {
       }),
       this.prisma.laundry.count({
         where: {
-          status: 'ACTIVE',
+          status: AccountStatus.ACTIVE,
           created_at: { lte: previous.end },
         },
       }),
@@ -2116,7 +2116,7 @@ export class AdminService {
 
     // Get laundries with their order stats
     const laundries = await this.prisma.laundry.findMany({
-      where: { status: 'ACTIVE' },
+      where: { status: AccountStatus.ACTIVE },
       select: {
         id: true,
         laundry_name: true,
@@ -2312,7 +2312,7 @@ export class AdminService {
 
     if (target === NotificationTarget.CUSTOMERS || target === NotificationTarget.ALL_USERS) {
       const users = await this.prisma.user.findMany({
-        where: { status: 'ACTIVE' },
+        where: { status: AccountStatus.ACTIVE },
         select: { id: true },
       });
       userIds = users.map((u) => u.id);
@@ -2320,7 +2320,7 @@ export class AdminService {
 
     if (target === NotificationTarget.LAUNDRIES || target === NotificationTarget.ALL_USERS) {
       const laundries = await this.prisma.laundry.findMany({
-        where: { status: 'ACTIVE' },
+        where: { status: AccountStatus.ACTIVE },
         select: { id: true },
       });
       laundryIds = laundries.map((l) => l.id);
