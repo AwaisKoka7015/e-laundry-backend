@@ -244,4 +244,39 @@ export class AuthController {
       data,
     };
   }
+
+  @Get('status')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Get account status',
+    description: 'Lightweight endpoint to check account status (for Android app)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Account status retrieved successfully',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          id: 'uuid',
+          phone_number: '+923001234567',
+          role: 'LAUNDRY',
+          status: 'ACTIVE',
+          is_active: true,
+          is_verified: true,
+          requires_location: false,
+          is_suspended: false,
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getStatus(@CurrentUser() user: CurrentUserPayload) {
+    const data = await this.authService.getStatus(user.sub, user.role);
+    return {
+      success: true,
+      data,
+    };
+  }
 }

@@ -22,6 +22,7 @@ import {
   FirebaseAuthDto,
   UserRole,
 } from './dto';
+import { AccountStatus } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -143,7 +144,7 @@ export class AuthService {
       return {
         is_new_user: false,
         requires_role_selection: false,
-        requires_location: existingUser.status === 'PENDING_LOCATION',
+        requires_location: existingUser.status === AccountStatus.PENDING_LOCATION,
         ...tokens,
         user: this.sanitizeUser(existingUser),
       };
@@ -161,7 +162,7 @@ export class AuthService {
       return {
         is_new_user: false,
         requires_role_selection: false,
-        requires_location: existingLaundry.status === 'PENDING_LOCATION',
+        requires_location: existingLaundry.status === AccountStatus.PENDING_LOCATION,
         ...tokens,
         user: this.sanitizeLaundry(existingLaundry),
       };
@@ -227,7 +228,7 @@ export class AuthService {
       return {
         is_new_user: false,
         requires_role_selection: false,
-        requires_location: existingUser.status === 'PENDING_LOCATION',
+        requires_location: existingUser.status === AccountStatus.PENDING_LOCATION,
         ...tokens,
         user: this.sanitizeUser(existingUser),
       };
@@ -247,7 +248,7 @@ export class AuthService {
       return {
         is_new_user: false,
         requires_role_selection: false,
-        requires_location: existingLaundry.status === 'PENDING_LOCATION',
+        requires_location: existingLaundry.status === AccountStatus.PENDING_LOCATION,
         ...tokens,
         user: this.sanitizeLaundry(existingLaundry),
       };
@@ -374,7 +375,7 @@ export class AuthService {
         phone_number,
         name,
         email,
-        status: 'PENDING_LOCATION',
+        status: AccountStatus.PENDING_LOCATION,
       },
     });
 
@@ -471,7 +472,7 @@ export class AuthService {
         laundry_name,
         email,
         shop_images: shopImageUrls,
-        status: 'PENDING_LOCATION',
+        status: AccountStatus.PENDING_LOCATION,
       },
     });
 
@@ -564,7 +565,7 @@ export class AuthService {
           phone_number,
           name,
           email,
-          status: 'PENDING_LOCATION',
+          status: AccountStatus.PENDING_LOCATION,
         },
       });
     } else {
@@ -575,7 +576,7 @@ export class AuthService {
           laundry_name,
           email,
           shop_images: shop_images || [],
-          status: 'PENDING_LOCATION',
+          status: AccountStatus.PENDING_LOCATION,
         },
       });
     }
@@ -607,7 +608,7 @@ export class AuthService {
           city,
           address_text,
           near_landmark,
-          status: 'ACTIVE',
+          status: AccountStatus.ACTIVE,
         },
       });
 
@@ -623,7 +624,7 @@ export class AuthService {
           city,
           address_text,
           near_landmark,
-          status: 'ACTIVE',
+          status: AccountStatus.ACTIVE,
         },
       });
 
@@ -717,6 +718,57 @@ export class AuthService {
         throw new UnauthorizedException('Laundry not found');
       }
       return { user: this.sanitizeLaundry(laundry) };
+    }
+
+    throw new UnauthorizedException('Invalid role');
+  }
+
+  // ==================== GET STATUS ====================
+  async getStatus(userId: string, role: string) {
+    if (role === 'CUSTOMER') {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          status: true,
+          phone_number: true,
+        },
+      });
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+      return {
+        id: user.id,
+        phone_number: user.phone_number,
+        role: 'CUSTOMER',
+        status: user.status,
+        is_active: user.status === AccountStatus.ACTIVE,
+        requires_location: user.status === AccountStatus.PENDING_LOCATION,
+        is_suspended: user.status === AccountStatus.SUSPENDED,
+      };
+    } else if (role === 'LAUNDRY') {
+      const laundry = await this.prisma.laundry.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          status: true,
+          phone_number: true,
+          is_verified: true,
+        },
+      });
+      if (!laundry) {
+        throw new UnauthorizedException('Laundry not found');
+      }
+      return {
+        id: laundry.id,
+        phone_number: laundry.phone_number,
+        role: 'LAUNDRY',
+        status: laundry.status,
+        is_active: laundry.status === AccountStatus.ACTIVE,
+        is_verified: laundry.is_verified,
+        requires_location: laundry.status === AccountStatus.PENDING_LOCATION,
+        is_suspended: laundry.status === AccountStatus.SUSPENDED,
+      };
     }
 
     throw new UnauthorizedException('Invalid role');
