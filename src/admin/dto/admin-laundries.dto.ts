@@ -42,3 +42,15 @@ export class UpdateLaundryStatusDto {
   @IsEnum(['ACTIVE', 'SUSPENDED'])
   status: 'ACTIVE' | 'SUSPENDED';
 }
+
+export class PendingSetupLaundriesQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ description: 'Search by laundry name or phone number' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by city' })
+  @IsOptional()
+  @IsString()
+  city?: string;
+}
