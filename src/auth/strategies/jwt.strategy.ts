@@ -38,7 +38,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         where: { id: payload.sub },
       });
 
-      if (!user || user.status === AccountStatus.DELETED || user.status === AccountStatus.SUSPENDED) {
+      if (
+        !user ||
+        user.status === AccountStatus.DELETED ||
+        user.status === AccountStatus.SUSPENDED
+      ) {
         throw new UnauthorizedException('User not found or inactive');
       }
     } else if (payload.role === 'LAUNDRY') {
@@ -46,7 +50,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         where: { id: payload.sub },
       });
 
-      if (!laundry || laundry.status === AccountStatus.DELETED || laundry.status === AccountStatus.SUSPENDED) {
+      if (
+        !laundry ||
+        laundry.status === AccountStatus.DELETED ||
+        laundry.status === AccountStatus.SUSPENDED
+      ) {
         throw new UnauthorizedException('Laundry not found or inactive');
       }
     } else if (payload.role === 'DELIVERY_PARTNER') {
@@ -54,7 +62,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         where: { id: payload.sub },
       });
 
-      if (!partner || partner.status === 'INACTIVE' || partner.status === 'SUSPENDED') {
+      if (!partner || partner.status === 'INACTIVE') {
         throw new UnauthorizedException('Delivery partner not found or inactive');
       }
     }

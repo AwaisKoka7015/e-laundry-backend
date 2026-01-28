@@ -26,10 +26,7 @@ export class LaundryAutoApprovalService {
       // Find laundries that are pending and created before the cutoff time
       const pendingLaundries = await this.prisma.laundry.findMany({
         where: {
-          OR: [
-            { status: AccountStatus.PENDING_LOCATION },
-            { status: AccountStatus.PENDING_ROLE },
-          ],
+          OR: [{ status: AccountStatus.PENDING_LOCATION }, { status: AccountStatus.PENDING_ROLE }],
           created_at: { lte: cutoffTime },
         },
         select: {

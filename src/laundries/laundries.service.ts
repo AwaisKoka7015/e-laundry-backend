@@ -29,9 +29,10 @@ export class LaundriesService {
       sort_order = SortOrder.DESC,
     } = dto;
 
-    // Build where clause
+    // Build where clause - only show ACTIVE and is_open laundries to customers
     const where: Prisma.LaundryWhereInput = {
       status: 'ACTIVE',
+      is_open: true,
       ...(search && {
         laundry_name: { contains: search, mode: 'insensitive' },
       }),
@@ -94,9 +95,10 @@ export class LaundriesService {
       sort_by = SortBy.DISTANCE,
     } = dto;
 
-    // Build where clause
+    // Build where clause - only show ACTIVE and is_open laundries
     const where: Prisma.LaundryWhereInput = {
       status: 'ACTIVE',
+      is_open: true,
       latitude: { not: null },
       longitude: { not: null },
       ...(min_rating && { rating: { gte: min_rating } }),
@@ -163,9 +165,10 @@ export class LaundriesService {
   async getTopRatedLaundries(dto: GetTopRatedLaundriesDto) {
     const { page = 1, limit = 10, city, min_reviews = 0, category_id } = dto;
 
-    // Build where clause
+    // Build where clause - only show ACTIVE and is_open laundries
     const where: Prisma.LaundryWhereInput = {
       status: 'ACTIVE',
+      is_open: true,
       total_reviews: { gte: min_reviews },
       ...(city && { city: { equals: city, mode: 'insensitive' } }),
     };
@@ -226,6 +229,30 @@ export class LaundriesService {
     return { user: { ...updated, role: 'LAUNDRY' } };
   }
 
+  // ==================== TOGGLE SHOP OPEN/CLOSE ====================
+  async toggleShopOpen(laundryId: string, isOpen?: boolean) {
+    const laundry = await this.prisma.laundry.findUnique({
+      where: { id: laundryId },
+    });
+
+    if (!laundry) {
+      throw new NotFoundException('Laundry not found');
+    }
+
+    // If isOpen is provided, use it; otherwise toggle current value
+    const newIsOpen = isOpen !== undefined ? isOpen : !laundry.is_open;
+
+    const updated = await this.prisma.laundry.update({
+      where: { id: laundryId },
+      data: { is_open: newIsOpen },
+    });
+
+    return {
+      is_open: updated.is_open,
+      message: updated.is_open ? 'Shop is now open' : 'Shop is now closed',
+    };
+  }
+
   async findById(laundryId: string) {
     const laundry = await this.prisma.laundry.findUnique({
       where: { id: laundryId },
@@ -250,6 +277,31 @@ export class LaundriesService {
     return laundry;
   }
 
+  // ==================== GET LAUNDRY STATUS (FOR FLUTTER APP) ====================
+  async getLaundryStatus(laundryId: string) {
+    const laundry = await this.prisma.laundry.findUnique({
+      where: { id: laundryId },
+      select: {
+        id: true,
+        is_open: true,
+        status: true,
+        laundry_name: true,
+      },
+    });
+
+    if (!laundry) {
+      throw new NotFoundException('Laundry not found');
+    }
+
+    return {
+      id: laundry.id,
+      laundry_name: laundry.laundry_name,
+      is_open: laundry.is_open,
+      status: laundry.status,
+      is_available: laundry.status === 'ACTIVE' && laundry.is_open,
+    };
+  }
+
   async getPublicProfile(laundryId: string) {
     const laundry = await this.findById(laundryId);
 
@@ -263,6 +315,7 @@ export class LaundriesService {
       total_orders: laundry.total_orders,
       services_count: laundry.services_count,
       is_verified: laundry.is_verified,
+      is_open: laundry.is_open,
       latitude: laundry.latitude,
       longitude: laundry.longitude,
       address_text: laundry.address_text,
@@ -289,6 +342,7 @@ export class LaundriesService {
       total_orders: true,
       services_count: true,
       is_verified: true,
+      is_open: true,
       address_text: true,
       city: true,
       latitude: true,
@@ -342,6 +396,7 @@ export class LaundriesService {
       total_orders: laundry.total_orders,
       services_count: laundry.services_count,
       is_verified: laundry.is_verified,
+      is_open: laundry.is_open,
       address_text: laundry.address_text,
       city: laundry.city,
     };
