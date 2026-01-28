@@ -18,6 +18,7 @@ import {
   UpdateUserStatusDto,
   AdminLaundriesQueryDto,
   UpdateLaundryStatusDto,
+  PendingSetupLaundriesQueryDto,
   AdminOrdersQueryDto,
   UpdateOrderStatusDto,
   CreateCategoryDto,
@@ -138,6 +139,23 @@ export class AdminController {
 
   // ==================== LAUNDRIES ====================
 
+  @Get('laundries/pending-setup')
+  @ApiOperation({ summary: 'Get all laundries pending setup/approval' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'city', required: false, type: String })
+  @ApiResponse({ status: 200, description: 'List of pending laundries with auto-approval info' })
+  async getPendingSetupLaundries(@Query() query: PendingSetupLaundriesQueryDto) {
+    const data = await this.adminService.getPendingSetupLaundries(query);
+    return {
+      success: true,
+      data: { laundries: data.laundries },
+      pagination: data.pagination,
+      auto_approve_minutes: data.auto_approve_minutes,
+    };
+  }
+
   @Get('laundries')
   @ApiOperation({ summary: 'Get all laundries with filters and pagination' })
   @ApiQuery({ name: 'page', required: false, type: Number })
@@ -215,14 +233,34 @@ export class AdminController {
   }
 
   @Patch('laundries/:id/activate')
-  @ApiOperation({ summary: 'Activate pending laundry (approve new listing)' })
-  @ApiResponse({ status: 200, description: 'Laundry activated and verified' })
+  @ApiOperation({ summary: 'Complete one-click setup: Activate laundry, create all services and pricing' })
+  @ApiResponse({ status: 200, description: 'Laundry activated with all services and pricing created' })
   @ApiResponse({ status: 404, description: 'Laundry not found' })
   async activateLaundry(@Param('id') id: string) {
     const data = await this.adminService.activateLaundry(id);
+    const setupSummary = (data as any).setup_summary;
     return {
       success: true,
-      message: 'Laundry activated and verified successfully',
+      message: setupSummary
+        ? `Laundry setup complete! Created ${setupSummary.services_created} services with ${setupSummary.pricing_entries_created} pricing entries.`
+        : 'Laundry is already active and set up',
+      data,
+    };
+  }
+
+  @Post('laundries/:id/setup')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Complete one-click setup: Activate laundry, create all services and pricing' })
+  @ApiResponse({ status: 200, description: 'Laundry setup complete with all services and pricing created' })
+  @ApiResponse({ status: 404, description: 'Laundry not found' })
+  async setupLaundry(@Param('id') id: string) {
+    const data = await this.adminService.activateLaundry(id);
+    const setupSummary = (data as any).setup_summary;
+    return {
+      success: true,
+      message: setupSummary
+        ? `Laundry setup complete! Created ${setupSummary.services_created} services with ${setupSummary.pricing_entries_created} pricing entries.`
+        : 'Laundry is already active and set up',
       data,
     };
   }

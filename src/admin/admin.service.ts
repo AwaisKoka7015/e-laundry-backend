@@ -6,6 +6,7 @@ import {
   AdminLaundriesQueryDto,
   LaundryStatusFilter,
   LaundryVerifiedFilter,
+  PendingSetupLaundriesQueryDto,
   AdminOrdersQueryDto,
   OrderStatusFilter,
   PaymentStatusFilter,
@@ -402,20 +403,194 @@ export class AdminService {
       throw new NotFoundException('Laundry not found');
     }
 
-    if (laundry.status === AccountStatus.ACTIVE) {
-      return { ...laundry, message: 'Laundry is already active' };
+    if (laundry.status === AccountStatus.ACTIVE && laundry.is_verified) {
+      // Check if services already exist
+      const existingServices = await this.prisma.laundryService.count({
+        where: { laundry_id: id },
+      });
+      if (existingServices > 0) {
+        return { ...laundry, message: 'Laundry is already active and set up' };
+      }
     }
 
-    // Activate the laundry and optionally verify it
-    const updated = await this.prisma.laundry.update({
-      where: { id },
-      data: {
-        status: AccountStatus.ACTIVE,
-        is_verified: true,
-      },
-    });
+    // Perform complete setup in a transaction with extended timeout
+    const result = await this.prisma.$transaction(
+      async (tx) => {
+        // 1. Activate the laundry and verify it
+        const updated = await tx.laundry.update({
+          where: { id },
+          data: {
+            status: AccountStatus.ACTIVE,
+            is_verified: true,
+          },
+        });
 
-    return updated;
+        // 2. Get all active service categories
+        const categories = await tx.serviceCategory.findMany({
+          where: { is_active: true },
+          orderBy: { sort_order: 'asc' },
+        });
+
+        // 3. Get all active clothing items
+        const clothingItems = await tx.clothingItem.findMany({
+          where: { is_active: true },
+          orderBy: [{ type: 'asc' }, { sort_order: 'asc' }],
+        });
+
+        // 4. Create LaundryService for each category and collect pricing data
+        const servicesCreated: string[] = [];
+        const allPricingData: Array<{
+          laundry_service_id: string;
+          clothing_item_id: string;
+          price: number;
+          express_price: number;
+          price_unit: 'PER_PIECE';
+          is_available: boolean;
+        }> = [];
+
+        for (const category of categories) {
+          const service = await tx.laundryService.create({
+            data: {
+              laundry_id: id,
+              category_id: category.id,
+              name: category.name,
+              description: category.description,
+              base_price: this.getDefaultBasePrice(category.name),
+              price_unit: 'PER_PIECE',
+              estimated_hours: this.getDefaultEstimatedHours(category.name),
+              is_available: true,
+            },
+          });
+          servicesCreated.push(service.id);
+
+          // Collect pricing data for batch insert
+          for (const item of clothingItems) {
+            allPricingData.push({
+              laundry_service_id: service.id,
+              clothing_item_id: item.id,
+              price: this.getDefaultPrice(category.name, item.name, item.type),
+              express_price: this.getDefaultExpressPrice(category.name, item.name, item.type),
+              price_unit: 'PER_PIECE',
+              is_available: true,
+            });
+          }
+        }
+
+        // 5. Batch insert all pricing data at once
+        await tx.servicePricing.createMany({
+          data: allPricingData,
+        });
+
+        // 6. Update laundry services count
+        await tx.laundry.update({
+          where: { id },
+          data: { services_count: categories.length },
+        });
+
+        return {
+          laundry: updated,
+          services_created: servicesCreated.length,
+          pricing_entries_created: allPricingData.length,
+        };
+      },
+      {
+        maxWait: 10000, // 10 seconds max wait to acquire connection
+        timeout: 60000, // 60 seconds timeout for the transaction
+      },
+    );
+
+    return {
+      ...result.laundry,
+      setup_summary: {
+        services_created: result.services_created,
+        pricing_entries_created: result.pricing_entries_created,
+      },
+    };
+  }
+
+  // Default base price by category (PKR)
+  private getDefaultBasePrice(categoryName: string): number {
+    const basePrices: Record<string, number> = {
+      'Washing': 50,
+      'Ironing': 30,
+      'Wash & Iron': 70,
+      'Dry Cleaning': 150,
+      'Stain Removal': 100,
+      'Shoe Cleaning': 250,
+      'Carpet Cleaning': 500,
+      'Curtain Cleaning': 200,
+    };
+    return basePrices[categoryName] || 50;
+  }
+
+  // Default estimated hours by category
+  private getDefaultEstimatedHours(categoryName: string): number {
+    const hours: Record<string, number> = {
+      'Washing': 24,
+      'Ironing': 12,
+      'Wash & Iron': 24,
+      'Dry Cleaning': 48,
+      'Stain Removal': 48,
+      'Shoe Cleaning': 24,
+      'Carpet Cleaning': 72,
+      'Curtain Cleaning': 48,
+    };
+    return hours[categoryName] || 24;
+  }
+
+  // Default price per item based on category and item type (PKR)
+  private getDefaultPrice(categoryName: string, itemName: string, itemType: string): number {
+    // Base multipliers by category
+    const categoryMultiplier: Record<string, number> = {
+      'Washing': 1,
+      'Ironing': 0.6,
+      'Wash & Iron': 1.4,
+      'Dry Cleaning': 3,
+      'Stain Removal': 2,
+      'Shoe Cleaning': 5,
+      'Carpet Cleaning': 10,
+      'Curtain Cleaning': 4,
+    };
+
+    // Base prices by item type
+    const typeBasePrices: Record<string, number> = {
+      'MEN': 50,
+      'WOMEN': 60,
+      'KIDS': 40,
+      'HOME': 100,
+    };
+
+    // Special items that cost more
+    const specialItems: Record<string, number> = {
+      'Suit (2 Piece)': 200,
+      'Suit (3 Piece)': 300,
+      'Blazer/Coat': 150,
+      'Sherwani': 400,
+      'Bridal Dress': 1000,
+      'Party Wear': 300,
+      'Lehenga': 500,
+      'Saree': 250,
+      'Abaya': 200,
+      'Blanket (Single)': 150,
+      'Blanket (Double)': 200,
+      'Quilt/Razai': 300,
+      'Comforter': 350,
+      'Carpet (Small)': 500,
+      'Carpet (Medium)': 800,
+      'Carpet (Large)': 1200,
+      'Sofa Cover Set': 400,
+      'Bedsheet Set': 200,
+    };
+
+    const multiplier = categoryMultiplier[categoryName] || 1;
+    const basePrice = specialItems[itemName] || typeBasePrices[itemType] || 50;
+
+    return Math.round(basePrice * multiplier);
+  }
+
+  // Express price is 1.5x of normal price
+  private getDefaultExpressPrice(categoryName: string, itemName: string, itemType: string): number {
+    return Math.round(this.getDefaultPrice(categoryName, itemName, itemType) * 1.5);
   }
 
   async verifyLaundry(id: string) {
@@ -505,6 +680,94 @@ export class AdminService {
       verified,
       unverified,
       pending_location: pendingLocation,
+    };
+  }
+
+  async getPendingSetupLaundries(query: PendingSetupLaundriesQueryDto) {
+    const { page = 1, limit = 10, search, city } = query;
+    const skip = (page - 1) * limit;
+
+    // Build where clause - only pending laundries (not verified and pending location)
+    const where: Prisma.LaundryWhereInput = {
+      OR: [
+        { status: AccountStatus.PENDING_LOCATION },
+        { status: AccountStatus.PENDING_ROLE },
+        { is_verified: false, status: AccountStatus.ACTIVE },
+      ],
+    };
+
+    // City filter
+    if (city) {
+      where.city = { contains: city, mode: 'insensitive' };
+    }
+
+    // Search filter (laundry name or phone)
+    if (search) {
+      where.AND = [
+        {
+          OR: [
+            { laundry_name: { contains: search, mode: 'insensitive' } },
+            { phone_number: { contains: search } },
+          ],
+        },
+      ];
+    }
+
+    // Get pending laundries with time until auto-approval
+    const [laundries, total] = await Promise.all([
+      this.prisma.laundry.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { created_at: 'asc' }, // Oldest first (waiting longest)
+        select: {
+          id: true,
+          laundry_name: true,
+          phone_number: true,
+          email: true,
+          laundry_logo: true,
+          city: true,
+          address_text: true,
+          status: true,
+          is_verified: true,
+          created_at: true,
+          latitude: true,
+          longitude: true,
+        },
+      }),
+      this.prisma.laundry.count({ where }),
+    ]);
+
+    // Calculate time until auto-approval and waiting time for each laundry
+    const autoApproveMinutes = parseInt(process.env.LAUNDRY_AUTO_APPROVE_MINUTES || '120', 10);
+    const now = new Date();
+
+    const laundriesWithApprovalInfo = laundries.map((laundry) => {
+      const createdAt = new Date(laundry.created_at);
+      const autoApproveAt = new Date(createdAt.getTime() + autoApproveMinutes * 60 * 1000);
+      const waitingMinutes = Math.floor((now.getTime() - createdAt.getTime()) / (60 * 1000));
+      const minutesUntilAutoApprove = Math.max(
+        0,
+        Math.floor((autoApproveAt.getTime() - now.getTime()) / (60 * 1000)),
+      );
+
+      return {
+        ...laundry,
+        waiting_time_minutes: waitingMinutes,
+        auto_approve_at: autoApproveAt,
+        minutes_until_auto_approve: minutesUntilAutoApprove,
+      };
+    });
+
+    return {
+      laundries: laundriesWithApprovalInfo,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+      auto_approve_minutes: autoApproveMinutes,
     };
   }
 
