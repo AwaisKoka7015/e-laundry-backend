@@ -369,7 +369,7 @@ export class AuthService {
       }
     }
 
-    // Create customer
+    // Create customer - customers don't need admin approval, start as ACTIVE
     const customer = await this.prisma.user.create({
       data: {
         phone_number,
@@ -465,7 +465,7 @@ export class AuthService {
       shopImageUrls.push(uploadResult.url);
     }
 
-    // Create laundry
+    // Create laundry - laundries need admin setup and approval, start as PENDING
     const laundry = await this.prisma.laundry.create({
       data: {
         phone_number,
@@ -559,7 +559,7 @@ export class AuthService {
     let newAccount: any;
 
     if (role === UserRole.CUSTOMER) {
-      // Create customer with name and optional email
+      // Create customer - customers don't need admin approval
       newAccount = await this.prisma.user.create({
         data: {
           phone_number,
@@ -569,7 +569,7 @@ export class AuthService {
         },
       });
     } else {
-      // Create laundry with laundry_name, shop_images, and optional email
+      // Create laundry - laundries need admin setup and approval
       newAccount = await this.prisma.laundry.create({
         data: {
           phone_number,
@@ -600,6 +600,7 @@ export class AuthService {
     const { latitude, longitude, city, address_text, near_landmark } = dto;
 
     if (role === 'CUSTOMER') {
+      // Customer already ACTIVE, just update location
       const user = await this.prisma.user.update({
         where: { id: userId },
         data: {
@@ -616,6 +617,7 @@ export class AuthService {
         user: this.sanitizeUser(user),
       };
     } else {
+      // Laundry stays PENDING until admin approves, just update location
       const laundry = await this.prisma.laundry.update({
         where: { id: userId },
         data: {
