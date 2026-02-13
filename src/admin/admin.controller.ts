@@ -10,14 +10,23 @@ import {
   Body,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
+import { JwtAuthGuard } from '../auth/guards';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { Public } from '../common/decorators/public.decorator';
+import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
 import {
+  AdminLoginDto,
   AdminUsersQueryDto,
   UpdateUserStatusDto,
   AdminLaundriesQueryDto,
   UpdateLaundryStatusDto,
+  UpdateLaundryDto,
   PendingSetupLaundriesQueryDto,
   AdminOrdersQueryDto,
   UpdateOrderStatusDto,
@@ -42,9 +51,41 @@ import {
 } from './dto';
 
 @ApiTags('Admin')
+@ApiBearerAuth('access-token')
 @Controller('admin')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
+
+  // ==================== AUTH ====================
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Admin login with email and password' })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  async login(@Body() dto: AdminLoginDto) {
+    const data = await this.adminService.adminLogin(dto.email, dto.password);
+    return {
+      success: true,
+      message: 'Login successful',
+      data,
+    };
+  }
+
+  @Get('me')
+  @ApiOperation({ summary: 'Get current admin profile' })
+  @ApiResponse({ status: 200, description: 'Admin profile' })
+  async getMe(@CurrentUser() user: CurrentUserPayload) {
+    const data = await this.adminService.getAdminProfile(user.sub);
+    return {
+      success: true,
+      data,
+    };
+  }
 
   // ==================== USERS (CUSTOMERS) ====================
 
@@ -175,7 +216,6 @@ export class AdminController {
   @ApiResponse({ status: 200, description: 'List of laundries' })
   async getLaundries(@Query() query: AdminLaundriesQueryDto) {
     const data = await this.adminService.getLaundries(query);
-    console.log('AdminController -> getLaundries -> data', data);
     return {
       success: true,
       data: { laundries: data.laundries },
@@ -202,6 +242,19 @@ export class AdminController {
     const data = await this.adminService.getLaundryById(id);
     return {
       success: true,
+      data,
+    };
+  }
+
+  @Put('laundries/:id')
+  @ApiOperation({ summary: 'Update laundry details' })
+  @ApiResponse({ status: 200, description: 'Laundry updated successfully' })
+  @ApiResponse({ status: 404, description: 'Laundry not found' })
+  async updateLaundry(@Param('id') id: string, @Body() dto: UpdateLaundryDto) {
+    const data = await this.adminService.updateLaundry(id, dto);
+    return {
+      success: true,
+      message: 'Laundry updated successfully',
       data,
     };
   }
@@ -253,53 +306,15 @@ export class AdminController {
     };
   }
 
-  @Post('laundries/:id/setup')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Complete one-click setup: Activate laundry, create all services and pricing',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Laundry setup complete with all services and pricing created',
-  })
-  @ApiResponse({ status: 404, description: 'Laundry not found' })
-  async setupLaundry(@Param('id') id: string) {
-    const data = await this.adminService.activateLaundry(id);
-    const setupSummary = (data as any).setup_summary;
-    return {
-      success: true,
-      message: setupSummary
-        ? `Laundry setup complete! Created ${setupSummary.services_created} services with ${setupSummary.pricing_entries_created} pricing entries.`
-        : 'Laundry is already active and set up',
-      data,
-    };
-  }
-
   // ==================== LAUNDRY SETUP ====================
-
-  @Get('laundries/pending-setup')
-  @ApiOperation({ summary: 'Get pending laundries that need setup' })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiResponse({ status: 200, description: 'List of pending laundries' })
-  async getPendingLaundriesForSetup(@Query('page') page?: number, @Query('limit') limit?: number) {
-    const data = await this.adminService.getPendingLaundriesForSetup(page, limit);
-    return {
-      success: true,
-      data: { laundries: data.laundries },
-      pagination: data.pagination,
-    };
-  }
 
   @Post('laundries/:id/setup')
   @ApiOperation({ summary: 'Setup laundry with all active categories and clothing items' })
   @ApiResponse({ status: 200, description: 'Laundry set up successfully' })
   @ApiResponse({ status: 404, description: 'Laundry not found' })
   @ApiResponse({ status: 409, description: 'Laundry already set up or no categories/items' })
-  async setupLaundry(@Param('id') id: string) {
-    // TODO: Get admin ID from JWT token when auth is implemented
-    const adminId = 'admin';
-    const data = await this.adminService.setupLaundry(id, adminId);
+  async setupLaundry(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
+    const data = await this.adminService.setupLaundry(id, user.sub);
     return {
       success: true,
       message: `Laundry set up with ${data.total_services} services and ${data.total_pricing} pricing entries. Will be approved in 2 hours.`,
@@ -329,6 +344,18 @@ export class AdminController {
     return {
       success: true,
       ...data,
+    };
+  }
+
+  @Get('laundries/:id/services')
+  @ApiOperation({ summary: 'Get laundry services' })
+  @ApiResponse({ status: 200, description: 'Laundry services' })
+  @ApiResponse({ status: 404, description: 'Laundry not found' })
+  async getLaundryServices(@Param('id') id: string) {
+    const data = await this.adminService.getLaundryServices(id);
+    return {
+      success: true,
+      data: { services: data },
     };
   }
 

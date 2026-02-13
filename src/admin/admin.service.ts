@@ -1,4 +1,6 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AdminUsersQueryDto,
@@ -40,7 +42,83 @@ import { Prisma, AccountStatus } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private jwtService: JwtService,
+  ) {}
+
+  // ==================== ADMIN AUTH ====================
+
+  async adminLogin(email: string, password: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { email, role: 'ADMIN' },
+    });
+
+    if (!user || !user.password) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (user.status === 'DELETED' || user.status === 'SUSPENDED') {
+      throw new UnauthorizedException('Account is inactive');
+    }
+
+    const payload = {
+      sub: user.id,
+      phone_number: user.phone_number,
+      role: user.role,
+      type: 'access' as const,
+    };
+
+    const accessToken = this.jwtService.sign(payload);
+    const refreshToken = this.jwtService.sign(
+      { ...payload, type: 'refresh' },
+      { expiresIn: '7d' },
+    );
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { last_login: new Date() },
+    });
+
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+      },
+    };
+  }
+
+  async getAdminProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        avatar: true,
+        phone_number: true,
+        created_at: true,
+        last_login: true,
+      },
+    });
+
+    if (!user || user.role !== 'ADMIN') {
+      throw new NotFoundException('Admin not found');
+    }
+
+    return user;
+  }
 
   // ==================== USERS (CUSTOMERS) ====================
 
@@ -381,6 +459,63 @@ export class AdminService {
     };
   }
 
+  async updateLaundry(id: string, data: {
+    laundry_name?: string;
+    email?: string;
+    phone_number?: string;
+    description?: string;
+    address_text?: string;
+    city?: string;
+    near_landmark?: string;
+    latitude?: number;
+    longitude?: number;
+    working_hours?: Record<string, any>;
+  }) {
+    const laundry = await this.prisma.laundry.findUnique({ where: { id } });
+
+    if (!laundry) {
+      throw new NotFoundException('Laundry not found');
+    }
+
+    // Check if email is being changed and if it's already taken
+    if (data.email && data.email !== laundry.email) {
+      const existingWithEmail = await this.prisma.laundry.findUnique({
+        where: { email: data.email },
+      });
+      if (existingWithEmail) {
+        throw new ConflictException('Email is already in use by another laundry');
+      }
+    }
+
+    // Check if phone number is being changed and if it's already taken
+    if (data.phone_number && data.phone_number !== laundry.phone_number) {
+      const existingWithPhone = await this.prisma.laundry.findUnique({
+        where: { phone_number: data.phone_number },
+      });
+      if (existingWithPhone) {
+        throw new ConflictException('Phone number is already in use by another laundry');
+      }
+    }
+
+    const updated = await this.prisma.laundry.update({
+      where: { id },
+      data: {
+        ...(data.laundry_name !== undefined && { laundry_name: data.laundry_name }),
+        ...(data.email !== undefined && { email: data.email }),
+        ...(data.phone_number !== undefined && { phone_number: data.phone_number }),
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.address_text !== undefined && { address_text: data.address_text }),
+        ...(data.city !== undefined && { city: data.city }),
+        ...(data.near_landmark !== undefined && { near_landmark: data.near_landmark }),
+        ...(data.latitude !== undefined && { latitude: data.latitude }),
+        ...(data.longitude !== undefined && { longitude: data.longitude }),
+        ...(data.working_hours !== undefined && { working_hours: data.working_hours }),
+      },
+    });
+
+    return updated;
+  }
+
   async updateLaundryStatus(id: string, status: 'ACTIVE' | 'BLOCKED') {
     const laundry = await this.prisma.laundry.findUnique({ where: { id } });
 
@@ -615,13 +750,13 @@ export class AdminService {
       throw new NotFoundException('Laundry not found');
     }
 
-    // Soft delete by setting status to DELETED
-    await this.prisma.laundry.update({
+    // Hard delete - completely remove from database
+    // Related records (services, orders, reviews, etc.) will be cascade deleted
+    await this.prisma.laundry.delete({
       where: { id },
-      data: { status: AccountStatus.DELETED },
     });
 
-    return { message: 'Laundry deleted successfully' };
+    return { message: 'Laundry permanently deleted' };
   }
 
   async getLaundryOrders(id: string, page = 1, limit = 10) {
@@ -659,6 +794,32 @@ export class AdminService {
     };
   }
 
+  async getLaundryServices(id: string) {
+    const laundry = await this.prisma.laundry.findUnique({ where: { id } });
+    if (!laundry) {
+      throw new NotFoundException('Laundry not found');
+    }
+
+    const services = await this.prisma.laundryService.findMany({
+      where: { laundry_id: id },
+      orderBy: { created_at: 'asc' },
+      include: {
+        category: {
+          select: { id: true, name: true, name_urdu: true },
+        },
+        pricing: {
+          include: {
+            clothing_item: {
+              select: { id: true, name: true, name_urdu: true, type: true },
+            },
+          },
+        },
+      },
+    });
+
+    return services;
+  }
+
   async getLaundryStats() {
     const [total, active, suspended, verified, unverified, pendingLocation] = await Promise.all([
       this.prisma.laundry.count({ where: { status: { not: AccountStatus.DELETED } } }),
@@ -687,10 +848,17 @@ export class AdminService {
   async getPendingLaundriesForSetup(page = 1, limit = 10) {
     const skip = (page - 1) * limit;
 
+    // Include all pending statuses (PENDING, PENDING_LOCATION, PENDING_ROLE)
+    const pendingStatuses = [
+      AccountStatus.PENDING,
+      AccountStatus.PENDING_LOCATION,
+      AccountStatus.PENDING_ROLE,
+    ];
+
     const [laundries, total] = await Promise.all([
       this.prisma.laundry.findMany({
         where: {
-          status: 'PENDING',
+          status: { in: pendingStatuses },
           setup_at: null, // Not yet set up by admin
         },
         skip,
@@ -708,10 +876,12 @@ export class AdminService {
           latitude: true,
           longitude: true,
           created_at: true,
+          status: true,
+          setup_at: true,
         },
       }),
       this.prisma.laundry.count({
-        where: { status: 'PENDING', setup_at: null },
+        where: { status: { in: pendingStatuses }, setup_at: null },
       }),
     ]);
 
@@ -737,7 +907,13 @@ export class AdminService {
       throw new NotFoundException('Laundry not found');
     }
 
-    if (laundry.status !== 'PENDING') {
+    // Check if laundry is in a pending status
+    const pendingStatuses: AccountStatus[] = [
+      AccountStatus.PENDING,
+      AccountStatus.PENDING_LOCATION,
+      AccountStatus.PENDING_ROLE,
+    ];
+    if (!pendingStatuses.includes(laundry.status)) {
       throw new ConflictException('Laundry is not in pending status');
     }
 
@@ -767,7 +943,110 @@ export class AdminService {
       );
     }
 
-    // 4. Create services and pricing in a transaction
+    // 4. Default Pakistani prices (PKR) based on item and category
+    const getDefaultPrice = (itemName: string, itemType: string, categoryName: string): { price: number; expressPrice: number } => {
+      const categoryLower = categoryName.toLowerCase();
+      const itemLower = itemName.toLowerCase();
+
+      // Base prices for washing (in PKR)
+      const washingPrices: Record<string, number> = {
+        // MEN
+        'shirt': 70,
+        't-shirt': 60,
+        'pants/trousers': 90,
+        'jeans': 110,
+        'shorts': 60,
+        'suit (2 piece)': 250,
+        'suit (3 piece)': 350,
+        'blazer/coat': 200,
+        'jacket': 180,
+        'sweater': 120,
+        'hoodie': 130,
+        'kurta': 100,
+        'shalwar': 80,
+        'waistcoat': 100,
+        'sherwani': 500,
+        'underwear': 30,
+        'socks (pair)': 30,
+        // WOMEN
+        'blouse': 80,
+        'top': 70,
+        'dress': 150,
+        'skirt': 100,
+        'palazzo': 100,
+        'leggings': 70,
+        'dupatta': 100,
+        'scarf/shawl': 120,
+        'saree': 300,
+        'lehenga': 600,
+        'abaya': 200,
+        'hijab': 60,
+        // KIDS
+        'kids shirt': 50,
+        'kids t-shirt': 40,
+        'kids pants': 50,
+        'kids dress': 80,
+        'kids kurta': 60,
+        'school uniform': 100,
+        'baby clothes': 40,
+        // HOME
+        'bedsheet (single)': 150,
+        'bedsheet (double)': 200,
+        'bedsheet (king)': 250,
+        'pillow cover': 50,
+        'blanket (single)': 300,
+        'blanket (double)': 400,
+        'comforter/razai': 500,
+        'curtain (small)': 200,
+        'curtain (large)': 350,
+        'towel (small)': 50,
+        'towel (large)': 80,
+        'bath towel': 100,
+        'table cloth': 150,
+        'sofa cover': 300,
+        'cushion cover': 60,
+        'carpet (small)': 500,
+        'carpet (medium)': 800,
+        'carpet (large)': 1200,
+        'rug': 400,
+        'doormat': 100,
+      };
+
+      // Get base washing price
+      let basePrice = washingPrices[itemLower] || 100; // Default 100 PKR
+
+      // Adjust price based on category
+      let price = basePrice;
+      if (categoryLower.includes('iron') && !categoryLower.includes('wash')) {
+        // Ironing only - 40% of washing price
+        price = Math.round(basePrice * 0.4);
+      } else if (categoryLower.includes('wash') && categoryLower.includes('iron')) {
+        // Wash & Iron - 130% of washing price
+        price = Math.round(basePrice * 1.3);
+      } else if (categoryLower.includes('dry clean')) {
+        // Dry Cleaning - 200% of washing price
+        price = Math.round(basePrice * 2);
+      } else if (categoryLower.includes('stain')) {
+        // Stain Removal - 150% of washing price
+        price = Math.round(basePrice * 1.5);
+      } else if (categoryLower.includes('shoe')) {
+        // Shoe cleaning - fixed prices
+        price = itemLower.includes('sneaker') ? 300 : itemLower.includes('boot') ? 400 : 250;
+      } else if (categoryLower.includes('carpet')) {
+        // Carpet cleaning - per sq ft or fixed
+        price = itemLower.includes('large') ? 1500 : itemLower.includes('medium') ? 1000 : 600;
+      } else if (categoryLower.includes('curtain')) {
+        // Curtain cleaning
+        price = itemLower.includes('large') ? 400 : 250;
+      }
+
+      // Express price is 50% more
+      const expressPrice = Math.round(price * 1.5);
+
+      return { price, expressPrice };
+    };
+
+    // 5. Create services and pricing in a transaction
     const result = await this.prisma.$transaction(async (tx) => {
       const servicesCreated: any[] = [];
 
@@ -787,15 +1066,18 @@ export class AdminService {
           },
         });
 
-        // Create pricing for each clothing item
-        const pricingData = clothingItems.map((item) => ({
-          laundry_service_id: service.id,
-          clothing_item_id: item.id,
-          price: 0, // Default price - laundry owner can update later
-          express_price: 0,
-          price_unit: 'PER_PIECE' as const,
-          is_available: true,
-        }));
+        // Create pricing for each clothing item with default Pakistani prices
+        const pricingData = clothingItems.map((item) => {
+          const { price, expressPrice } = getDefaultPrice(item.name, item.type, category.name);
+          return {
+            laundry_service_id: service.id,
+            clothing_item_id: item.id,
+            price,
+            express_price: expressPrice,
+            price_unit: 'PER_PIECE' as const,
+            is_available: true,
+          };
+        });
 
         await tx.servicePricing.createMany({
           data: pricingData,
@@ -831,7 +1113,15 @@ export class AdminService {
 
   // Approve laundries that have been set up for more than 2 hours (called by cron)
   async approveSetupLaundries() {
-    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const autoApproveMinutes = parseInt(process.env.LAUNDRY_AUTO_APPROVE_MINUTES || '5', 10);
+    const cutoffTime = new Date(Date.now() - autoApproveMinutes * 60 * 1000);
+
+    // Include all pending statuses
+    const pendingStatuses = [
+      AccountStatus.PENDING,
+      AccountStatus.PENDING_LOCATION,
+      AccountStatus.PENDING_ROLE,
+    ];
 
     // Find laundries that:
     // - Are in PENDING status
@@ -840,8 +1130,8 @@ export class AdminService {
     // - Have not been approved yet (approved_at is null)
     const laundriesToApprove = await this.prisma.laundry.findMany({
       where: {
-        status: 'PENDING',
-        setup_at: { not: null, lte: twoHoursAgo },
+        status: { in: pendingStatuses },
+        setup_at: { not: null, lte: cutoffTime },
         approved_at: null,
       },
     });
@@ -856,7 +1146,7 @@ export class AdminService {
         this.prisma.laundry.update({
           where: { id: laundry.id },
           data: {
-            status: 'ACTIVE',
+            status: AccountStatus.ACTIVE,
             is_verified: true,
             is_open: true, // Auto-open the shop
             approved_at: new Date(),
@@ -879,9 +1169,10 @@ export class AdminService {
     const { page = 1, limit = 10, search, city } = query;
     const skip = (page - 1) * limit;
 
-    // Build where clause - only pending laundries (not verified and pending location)
+    // Build where clause - all pending laundries
     const where: Prisma.LaundryWhereInput = {
       OR: [
+        { status: AccountStatus.PENDING },
         { status: AccountStatus.PENDING_LOCATION },
         { status: AccountStatus.PENDING_ROLE },
         { is_verified: false, status: AccountStatus.ACTIVE },
@@ -931,7 +1222,7 @@ export class AdminService {
     ]);
 
     // Calculate time until auto-approval and waiting time for each laundry
-    const autoApproveMinutes = parseInt(process.env.LAUNDRY_AUTO_APPROVE_MINUTES || '120', 10);
+    const autoApproveMinutes = parseInt(process.env.LAUNDRY_AUTO_APPROVE_MINUTES || '5', 10);
     const now = new Date();
 
     const laundriesWithApprovalInfo = laundries.map((laundry) => {

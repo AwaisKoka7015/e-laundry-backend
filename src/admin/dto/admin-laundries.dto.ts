@@ -1,5 +1,5 @@
-import { IsOptional, IsString, IsEnum } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString, IsEnum, IsEmail, IsNumber, IsObject } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationQueryDto } from '../../common';
 
 export enum LaundryStatusFilter {
@@ -53,4 +53,56 @@ export class PendingSetupLaundriesQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   city?: string;
+}
+
+export class UpdateLaundryDto {
+  @ApiPropertyOptional({ description: 'Laundry shop name' })
+  @IsOptional()
+  @IsString()
+  laundry_name?: string;
+
+  @ApiPropertyOptional({ description: 'Email address' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional({ description: 'Phone number' })
+  @IsOptional()
+  @IsString()
+  phone_number?: string;
+
+  @ApiPropertyOptional({ description: 'Description of the laundry' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ description: 'Full address text' })
+  @IsOptional()
+  @IsString()
+  address_text?: string;
+
+  @ApiPropertyOptional({ description: 'City' })
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @ApiPropertyOptional({ description: 'Nearby landmark' })
+  @IsOptional()
+  @IsString()
+  near_landmark?: string;
+
+  @ApiPropertyOptional({ description: 'Latitude coordinate' })
+  @IsOptional()
+  @IsNumber()
+  latitude?: number;
+
+  @ApiPropertyOptional({ description: 'Longitude coordinate' })
+  @IsOptional()
+  @IsNumber()
+  longitude?: number;
+
+  @ApiPropertyOptional({ description: 'Working hours JSON object' })
+  @IsOptional()
+  @IsObject()
+  working_hours?: Record<string, any>;
 }

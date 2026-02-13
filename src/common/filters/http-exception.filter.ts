@@ -1,8 +1,10 @@
-import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { Response } from 'express';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
+  private readonly logger = new Logger(AllExceptionsFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -26,9 +28,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message = exception.message;
     }
 
-    // Log error in development
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Exception:', exception);
+    // Log error
+    if (status >= 500) {
+      this.logger.error(
+        `${status} ${code}: ${Array.isArray(message) ? message[0] : message}`,
+        exception instanceof Error ? exception.stack : undefined,
+      );
     }
 
     response.status(status).json({

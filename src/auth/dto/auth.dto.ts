@@ -242,3 +242,14 @@ export class AuthResponseDto {
   @ApiPropertyOptional()
   user?: any;
 }
+
+// ===== FCM TOKEN DTO =====
+export class RegisterDeviceDto {
+  @ApiProperty({
+    description: 'Firebase Cloud Messaging token for push notifications',
+    example: 'fMIxQp2eTHu...:APA91bG...',
+  })
+  @IsString()
+  @IsNotEmpty({ message: 'FCM token is required' })
+  fcm_token: string;
+}

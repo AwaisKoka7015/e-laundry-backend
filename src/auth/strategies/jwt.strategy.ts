@@ -8,7 +8,7 @@ import { AccountStatus } from '@prisma/client';
 export interface JwtPayload {
   sub: string;
   phone_number: string;
-  role: 'CUSTOMER' | 'LAUNDRY' | 'DELIVERY_PARTNER';
+  role: 'CUSTOMER' | 'LAUNDRY' | 'DELIVERY_PARTNER' | 'ADMIN';
   type: 'access' | 'refresh';
   iat?: number;
   exp?: number;
@@ -64,6 +64,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
       if (!partner || partner.status === 'INACTIVE') {
         throw new UnauthorizedException('Delivery partner not found or inactive');
+      }
+    } else if (payload.role === 'ADMIN') {
+      const admin = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+      });
+
+      if (
+        !admin ||
+        admin.role !== 'ADMIN' ||
+        admin.status === AccountStatus.DELETED ||
+        admin.status === AccountStatus.SUSPENDED
+      ) {
+        throw new UnauthorizedException('Admin not found or inactive');
       }
     }
 

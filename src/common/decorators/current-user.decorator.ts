@@ -3,7 +3,7 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 export interface CurrentUserPayload {
   sub: string;
   phone_number: string;
-  role: 'CUSTOMER' | 'LAUNDRY' | 'DELIVERY_PARTNER';
+  role: 'CUSTOMER' | 'LAUNDRY' | 'DELIVERY_PARTNER' | 'ADMIN';
   type: 'access' | 'refresh';
 }
 

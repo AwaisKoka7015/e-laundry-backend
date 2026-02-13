@@ -148,8 +148,44 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('LAUNDRY')
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Update order status' })
-  @ApiResponse({ status: 200, description: 'Status updated' })
+  @ApiOperation({
+    summary: 'Update order status',
+    description: `
+Update the order status through the workflow.
+
+**Status Flow:**
+\`\`\`
+PENDING → ACCEPTED/REJECTED
+ACCEPTED → PICKUP_SCHEDULED
+PICKUP_SCHEDULED → PICKED_UP
+PICKED_UP → PROCESSING
+PROCESSING → READY
+READY → OUT_FOR_DELIVERY
+OUT_FOR_DELIVERY → DELIVERED
+DELIVERED → COMPLETED
+\`\`\`
+
+**Push Notification:**
+A push notification is automatically sent to the customer when status changes.
+
+**Special Cases:**
+- \`REJECTED\`: Requires \`rejection_reason\` field
+- \`COMPLETED\`: Automatically marks payment as completed
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Status updated and customer notified',
+    schema: {
+      example: {
+        success: true,
+        message: 'Order status updated successfully',
+        data: { order: { id: 'uuid', status: 'ACCEPTED' } },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Invalid status transition' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
   async updateOrderStatus(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id') id: string,

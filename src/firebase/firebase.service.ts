@@ -84,4 +84,128 @@ export class FirebaseService implements OnModuleInit {
     }
     return admin.auth();
   }
+
+  /**
+   * Send push notification to a single device
+   * @param fcmToken - Device FCM token
+   * @param title - Notification title
+   * @param body - Notification body
+   * @param data - Additional data payload
+   */
+  async sendPushNotification(
+    fcmToken: string,
+    title: string,
+    body: string,
+    data?: Record<string, string>,
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (!this.isInitialized()) {
+      this.logger.warn('Firebase not initialized, skipping push notification');
+      return { success: false, error: 'Firebase not initialized' };
+    }
+
+    if (!fcmToken) {
+      this.logger.warn('No FCM token provided, skipping push notification');
+      return { success: false, error: 'No FCM token provided' };
+    }
+
+    try {
+      const message: admin.messaging.Message = {
+        token: fcmToken,
+        notification: {
+          title,
+          body,
+        },
+        data: data || {},
+        android: {
+          priority: 'high',
+          notification: {
+            sound: 'default',
+            channelId: 'order_updates',
+          },
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+              badge: 1,
+            },
+          },
+        },
+      };
+
+      const response = await admin.messaging().send(message);
+      this.logger.log(`Push notification sent successfully: ${response}`);
+      return { success: true, messageId: response };
+    } catch (error) {
+      this.logger.error('Failed to send push notification:', error);
+
+      // Handle invalid token - token might be expired or unregistered
+      if (error.code === 'messaging/invalid-registration-token' ||
+          error.code === 'messaging/registration-token-not-registered') {
+        return { success: false, error: 'Invalid or expired FCM token' };
+      }
+
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Send push notification to multiple devices
+   * @param fcmTokens - Array of FCM tokens
+   * @param title - Notification title
+   * @param body - Notification body
+   * @param data - Additional data payload
+   */
+  async sendPushNotificationToMultiple(
+    fcmTokens: string[],
+    title: string,
+    body: string,
+    data?: Record<string, string>,
+  ): Promise<{ successCount: number; failureCount: number }> {
+    if (!this.isInitialized()) {
+      this.logger.warn('Firebase not initialized, skipping push notifications');
+      return { successCount: 0, failureCount: fcmTokens.length };
+    }
+
+    const validTokens = fcmTokens.filter(token => token && token.length > 0);
+    if (validTokens.length === 0) {
+      return { successCount: 0, failureCount: 0 };
+    }
+
+    try {
+      const message: admin.messaging.MulticastMessage = {
+        tokens: validTokens,
+        notification: {
+          title,
+          body,
+        },
+        data: data || {},
+        android: {
+          priority: 'high',
+          notification: {
+            sound: 'default',
+            channelId: 'order_updates',
+          },
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+              badge: 1,
+            },
+          },
+        },
+      };
+
+      const response = await admin.messaging().sendEachForMulticast(message);
+      this.logger.log(`Push notifications sent: ${response.successCount} success, ${response.failureCount} failed`);
+      return {
+        successCount: response.successCount,
+        failureCount: response.failureCount,
+      };
+    } catch (error) {
+      this.logger.error('Failed to send multicast push notifications:', error);
+      return { successCount: 0, failureCount: validTokens.length };
+    }
+  }
 }

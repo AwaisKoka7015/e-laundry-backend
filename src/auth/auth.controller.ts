@@ -11,6 +11,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiOperation,
@@ -30,6 +31,7 @@ import {
   RefreshTokenDto,
   LogoutDto,
   FirebaseAuthDto,
+  RegisterDeviceDto,
 } from './dto';
 import { JwtAuthGuard } from './guards';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators';
@@ -40,6 +42,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('send-otp')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Send OTP to phone number' })
   @ApiResponse({ status: 200, description: 'OTP sent successfully' })
@@ -55,6 +58,7 @@ export class AuthController {
   }
 
   @Post('verify-otp')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '[DEV ONLY] Verify OTP and create/login account' })
   @ApiResponse({ status: 200, description: 'OTP verified successfully' })
@@ -277,6 +281,84 @@ export class AuthController {
     return {
       success: true,
       data,
+    };
+  }
+
+  @Post('register-device')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Register device for push notifications',
+    description: `
+Register the device's FCM token to receive push notifications.
+
+**When to call:**
+- After successful login
+- When FCM token is refreshed by Firebase SDK
+- When user re-enables notifications
+
+**Push notification triggers:**
+- Order status changes (ACCEPTED, PROCESSING, READY, etc.)
+- New orders (for laundries)
+- Promotional messages
+- System announcements
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Device registered successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Device registered for push notifications',
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'FCM token is required' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async registerDevice(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: RegisterDeviceDto,
+  ) {
+    await this.authService.registerFcmToken(user.sub, user.role, dto.fcm_token);
+    return {
+      success: true,
+      message: 'Device registered for push notifications',
+    };
+  }
+
+  @Post('unregister-device')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Unregister device from push notifications',
+    description: `
+Remove the FCM token to stop receiving push notifications.
+
+**When to call:**
+- User logs out
+- User disables notifications in app settings
+- Before registering a new device token
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Device unregistered successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Device unregistered from push notifications',
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async unregisterDevice(@CurrentUser() user: CurrentUserPayload) {
+    await this.authService.removeFcmToken(user.sub, user.role);
+    return {
+      success: true,
+      message: 'Device unregistered from push notifications',
     };
   }
 }

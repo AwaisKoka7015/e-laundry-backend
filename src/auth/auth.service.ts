@@ -205,13 +205,19 @@ export class AuthService {
     // Normalize phone number to Pakistani format if needed
     const normalizedPhone = this.normalizePhoneNumber(phone_number);
 
-    // Check if user already exists
-    const existingUser = await this.prisma.user.findUnique({
-      where: { phone_number: normalizedPhone },
+    // Check if user already exists (exclude DELETED accounts)
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        phone_number: normalizedPhone,
+        status: { not: AccountStatus.DELETED },
+      },
     });
 
-    const existingLaundry = await this.prisma.laundry.findUnique({
-      where: { phone_number: normalizedPhone },
+    const existingLaundry = await this.prisma.laundry.findFirst({
+      where: {
+        phone_number: normalizedPhone,
+        status: { not: AccountStatus.DELETED },
+      },
     });
 
     // Existing customer login
@@ -341,12 +347,12 @@ export class AuthService {
       });
     }
 
-    // Check if already registered
-    const existingUser = await this.prisma.user.findUnique({
-      where: { phone_number },
+    // Check if already registered (exclude DELETED accounts)
+    const existingUser = await this.prisma.user.findFirst({
+      where: { phone_number, status: { not: AccountStatus.DELETED } },
     });
-    const existingLaundry = await this.prisma.laundry.findUnique({
-      where: { phone_number },
+    const existingLaundry = await this.prisma.laundry.findFirst({
+      where: { phone_number, status: { not: AccountStatus.DELETED } },
     });
 
     if (existingUser || existingLaundry) {
@@ -356,10 +362,10 @@ export class AuthService {
       });
     }
 
-    // Check email uniqueness if provided
+    // Check email uniqueness if provided (exclude DELETED accounts)
     if (email) {
-      const emailExists = await this.prisma.user.findUnique({
-        where: { email },
+      const emailExists = await this.prisma.user.findFirst({
+        where: { email, status: { not: AccountStatus.DELETED } },
       });
       if (emailExists) {
         throw new ConflictException({
@@ -369,15 +375,40 @@ export class AuthService {
       }
     }
 
-    // Create customer - customers don't need admin approval, start as ACTIVE
-    const customer = await this.prisma.user.create({
-      data: {
-        phone_number,
-        name,
-        email,
-        status: AccountStatus.PENDING_LOCATION,
-      },
+    // Check if there's a DELETED record with this phone number (for re-registration)
+    const deletedUser = await this.prisma.user.findFirst({
+      where: { phone_number, status: AccountStatus.DELETED },
     });
+
+    let customer;
+    if (deletedUser) {
+      // Re-activate the deleted account with new data
+      customer = await this.prisma.user.update({
+        where: { id: deletedUser.id },
+        data: {
+          name,
+          email,
+          status: AccountStatus.PENDING_LOCATION,
+          // Reset location fields
+          latitude: null,
+          longitude: null,
+          city: null,
+          address_text: null,
+          near_landmark: null,
+        },
+      });
+      this.logger.log(`Customer re-registered (was deleted): ${phone_number}`);
+    } else {
+      // Create new customer
+      customer = await this.prisma.user.create({
+        data: {
+          phone_number,
+          name,
+          email,
+          status: AccountStatus.PENDING_LOCATION,
+        },
+      });
+    }
 
     // Clean up temp account
     await this.prisma.tempAccount.deleteMany({
@@ -428,12 +459,12 @@ export class AuthService {
       });
     }
 
-    // Check if already registered
-    const existingUser = await this.prisma.user.findUnique({
-      where: { phone_number },
+    // Check if already registered (exclude DELETED accounts)
+    const existingUser = await this.prisma.user.findFirst({
+      where: { phone_number, status: { not: AccountStatus.DELETED } },
     });
-    const existingLaundry = await this.prisma.laundry.findUnique({
-      where: { phone_number },
+    const existingLaundry = await this.prisma.laundry.findFirst({
+      where: { phone_number, status: { not: AccountStatus.DELETED } },
     });
 
     if (existingUser || existingLaundry) {
@@ -443,10 +474,10 @@ export class AuthService {
       });
     }
 
-    // Check email uniqueness if provided
+    // Check email uniqueness if provided (exclude DELETED accounts)
     if (email) {
-      const emailExists = await this.prisma.laundry.findUnique({
-        where: { email },
+      const emailExists = await this.prisma.laundry.findFirst({
+        where: { email, status: { not: AccountStatus.DELETED } },
       });
       if (emailExists) {
         throw new ConflictException({
@@ -465,16 +496,46 @@ export class AuthService {
       shopImageUrls.push(uploadResult.url);
     }
 
-    // Create laundry - laundries need admin setup and approval, start as PENDING
-    const laundry = await this.prisma.laundry.create({
-      data: {
-        phone_number,
-        laundry_name,
-        email,
-        shop_images: shopImageUrls,
-        status: AccountStatus.PENDING_LOCATION,
-      },
+    // Check if there's a DELETED record with this phone number (for re-registration)
+    const deletedLaundry = await this.prisma.laundry.findFirst({
+      where: { phone_number, status: AccountStatus.DELETED },
     });
+
+    let laundry;
+    if (deletedLaundry) {
+      // Re-activate the deleted account with new data
+      laundry = await this.prisma.laundry.update({
+        where: { id: deletedLaundry.id },
+        data: {
+          laundry_name,
+          email,
+          shop_images: shopImageUrls,
+          status: AccountStatus.PENDING_LOCATION,
+          // Reset other fields
+          is_verified: false,
+          is_open: false,
+          rating: 0,
+          total_orders: 0,
+          total_reviews: 0,
+          services_count: 0,
+          setup_at: null,
+          setup_by: null,
+          approved_at: null,
+        },
+      });
+      this.logger.log(`Laundry re-registered (was deleted): ${phone_number}`);
+    } else {
+      // Create new laundry
+      laundry = await this.prisma.laundry.create({
+        data: {
+          phone_number,
+          laundry_name,
+          email,
+          shop_images: shopImageUrls,
+          status: AccountStatus.PENDING_LOCATION,
+        },
+      });
+    }
 
     // Clean up temp account
     await this.prisma.tempAccount.deleteMany({
@@ -525,12 +586,12 @@ export class AuthService {
       });
     }
 
-    // Check if already registered
-    const existingUser = await this.prisma.user.findUnique({
-      where: { phone_number },
+    // Check if already registered (exclude DELETED accounts)
+    const existingUser = await this.prisma.user.findFirst({
+      where: { phone_number, status: { not: AccountStatus.DELETED } },
     });
-    const existingLaundry = await this.prisma.laundry.findUnique({
-      where: { phone_number },
+    const existingLaundry = await this.prisma.laundry.findFirst({
+      where: { phone_number, status: { not: AccountStatus.DELETED } },
     });
 
     if (existingUser || existingLaundry) {
@@ -540,13 +601,13 @@ export class AuthService {
       });
     }
 
-    // Check email uniqueness if provided
+    // Check email uniqueness if provided (exclude DELETED accounts)
     if (email) {
-      const emailExistsUser = await this.prisma.user.findUnique({
-        where: { email },
+      const emailExistsUser = await this.prisma.user.findFirst({
+        where: { email, status: { not: AccountStatus.DELETED } },
       });
-      const emailExistsLaundry = await this.prisma.laundry.findUnique({
-        where: { email },
+      const emailExistsLaundry = await this.prisma.laundry.findFirst({
+        where: { email, status: { not: AccountStatus.DELETED } },
       });
       if (emailExistsUser || emailExistsLaundry) {
         throw new ConflictException({
@@ -559,26 +620,75 @@ export class AuthService {
     let newAccount: any;
 
     if (role === UserRole.CUSTOMER) {
-      // Create customer - customers don't need admin approval
-      newAccount = await this.prisma.user.create({
-        data: {
-          phone_number,
-          name,
-          email,
-          status: AccountStatus.PENDING_LOCATION,
-        },
+      // Check if there's a DELETED user with this phone number
+      const deletedUser = await this.prisma.user.findFirst({
+        where: { phone_number, status: AccountStatus.DELETED },
       });
+
+      if (deletedUser) {
+        // Re-activate deleted account
+        newAccount = await this.prisma.user.update({
+          where: { id: deletedUser.id },
+          data: {
+            name,
+            email,
+            status: AccountStatus.PENDING_LOCATION,
+            latitude: null,
+            longitude: null,
+            city: null,
+            address_text: null,
+            near_landmark: null,
+          },
+        });
+      } else {
+        // Create new customer
+        newAccount = await this.prisma.user.create({
+          data: {
+            phone_number,
+            name,
+            email,
+            status: AccountStatus.PENDING_LOCATION,
+          },
+        });
+      }
     } else {
-      // Create laundry - laundries need admin setup and approval
-      newAccount = await this.prisma.laundry.create({
-        data: {
-          phone_number,
-          laundry_name,
-          email,
-          shop_images: shop_images || [],
-          status: AccountStatus.PENDING_LOCATION,
-        },
+      // Check if there's a DELETED laundry with this phone number
+      const deletedLaundry = await this.prisma.laundry.findFirst({
+        where: { phone_number, status: AccountStatus.DELETED },
       });
+
+      if (deletedLaundry) {
+        // Re-activate deleted account
+        newAccount = await this.prisma.laundry.update({
+          where: { id: deletedLaundry.id },
+          data: {
+            laundry_name,
+            email,
+            shop_images: shop_images || [],
+            status: AccountStatus.PENDING_LOCATION,
+            is_verified: false,
+            is_open: false,
+            rating: 0,
+            total_orders: 0,
+            total_reviews: 0,
+            services_count: 0,
+            setup_at: null,
+            setup_by: null,
+            approved_at: null,
+          },
+        });
+      } else {
+        // Create new laundry
+        newAccount = await this.prisma.laundry.create({
+          data: {
+            phone_number,
+            laundry_name,
+            email,
+            shop_images: shop_images || [],
+            status: AccountStatus.PENDING_LOCATION,
+          },
+        });
+      }
     }
 
     // Clean up temp account
@@ -626,7 +736,7 @@ export class AuthService {
           city,
           address_text,
           near_landmark,
-          status: AccountStatus.ACTIVE,
+          status: AccountStatus.PENDING, // Stay PENDING until admin approves
         },
       });
 
@@ -756,11 +866,52 @@ export class AuthService {
           status: true,
           phone_number: true,
           is_verified: true,
+          is_open: true,
+          setup_at: true,
+          approved_at: true,
+          services_count: true,
         },
       });
       if (!laundry) {
         throw new UnauthorizedException('Laundry not found');
       }
+
+      // Calculate remaining time for auto-approval (2 hours after setup)
+      const autoApproveMinutes = parseInt(
+        this.configService.get('LAUNDRY_AUTO_APPROVE_MINUTES', '5'),
+        10,
+      );
+
+      let approvalInfo: {
+        is_pending_approval: boolean;
+        is_setup_complete: boolean;
+        setup_at: Date | null;
+        approved_at: Date | null;
+        approval_remaining_seconds: number;
+        estimated_approval_at: Date | null;
+      } = {
+        is_pending_approval: false,
+        is_setup_complete: !!laundry.setup_at,
+        setup_at: laundry.setup_at,
+        approved_at: laundry.approved_at,
+        approval_remaining_seconds: 0,
+        estimated_approval_at: null,
+      };
+
+      // Check if laundry is pending approval (set up but not yet approved)
+      if (laundry.setup_at && !laundry.approved_at && laundry.status !== AccountStatus.ACTIVE) {
+        approvalInfo.is_pending_approval = true;
+
+        // Calculate estimated approval time
+        const setupTime = new Date(laundry.setup_at).getTime();
+        const approvalTime = setupTime + (autoApproveMinutes * 60 * 1000);
+        const now = Date.now();
+        const remainingMs = approvalTime - now;
+
+        approvalInfo.estimated_approval_at = new Date(approvalTime);
+        approvalInfo.approval_remaining_seconds = Math.max(0, Math.floor(remainingMs / 1000));
+      }
+
       return {
         id: laundry.id,
         phone_number: laundry.phone_number,
@@ -768,8 +919,11 @@ export class AuthService {
         status: laundry.status,
         is_active: laundry.status === AccountStatus.ACTIVE,
         is_verified: laundry.is_verified,
+        is_open: laundry.is_open,
+        services_count: laundry.services_count,
         requires_location: laundry.status === AccountStatus.PENDING_LOCATION,
         is_suspended: laundry.status === AccountStatus.SUSPENDED,
+        ...approvalInfo,
       };
     }
 
@@ -848,5 +1002,45 @@ export class AuthService {
       ...sanitized,
       role: 'LAUNDRY',
     };
+  }
+
+  // ==================== FCM TOKEN MANAGEMENT ====================
+
+  async registerFcmToken(userId: string, role: string, fcmToken: string) {
+    if (role === 'CUSTOMER') {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { fcm_token: fcmToken },
+      });
+    } else if (role === 'LAUNDRY') {
+      await this.prisma.laundry.update({
+        where: { id: userId },
+        data: { fcm_token: fcmToken },
+      });
+    } else if (role === 'DELIVERY_PARTNER') {
+      await this.prisma.deliveryPartner.update({
+        where: { id: userId },
+        data: { fcm_token: fcmToken },
+      });
+    }
+  }
+
+  async removeFcmToken(userId: string, role: string) {
+    if (role === 'CUSTOMER') {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { fcm_token: null },
+      });
+    } else if (role === 'LAUNDRY') {
+      await this.prisma.laundry.update({
+        where: { id: userId },
+        data: { fcm_token: null },
+      });
+    } else if (role === 'DELIVERY_PARTNER') {
+      await this.prisma.deliveryPartner.update({
+        where: { id: userId },
+        data: { fcm_token: null },
+      });
+    }
   }
 }

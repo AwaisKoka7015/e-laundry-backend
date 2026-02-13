@@ -1,9 +1,11 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 
 @Injectable()
 export class CloudinaryService {
+  private readonly logger = new Logger(CloudinaryService.name);
+
   constructor(private configService: ConfigService) {
     cloudinary.config({
       cloud_name: this.configService.get('CLOUDINARY_CLOUD_NAME'),
@@ -38,7 +40,7 @@ export class CloudinaryService {
 
       return result;
     } catch (error) {
-      console.error('Cloudinary upload error:', error);
+      this.logger.error('Cloudinary upload error:', error);
       throw new BadRequestException('Failed to upload image');
     }
   }
@@ -47,7 +49,7 @@ export class CloudinaryService {
     try {
       await cloudinary.uploader.destroy(publicId);
     } catch (error) {
-      console.error('Cloudinary delete error:', error);
+      this.logger.error('Cloudinary delete error:', error);
     }
   }
 
