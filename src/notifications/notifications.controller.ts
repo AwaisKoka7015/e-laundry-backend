@@ -23,8 +23,55 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get my notifications' })
-  @ApiResponse({ status: 200, description: 'List of notifications' })
+  @ApiOperation({
+    summary: 'Get my notifications',
+    description: `
+Retrieve all notifications for the authenticated user.
+
+**Notification Types:**
+- \`ORDER_UPDATE\` - Order status changes
+- \`NEW_ORDER\` - New order received (laundries)
+- \`PROMO\` - Promotional messages
+- \`SYSTEM\` - System announcements
+- \`WELCOME\` - Welcome message after registration
+- \`REVIEW\` - Review-related notifications
+
+**Response includes:**
+- List of notifications with read/unread status
+- Unread count for badge display
+- Pagination metadata
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of notifications',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          notifications: [
+            {
+              id: 'uuid',
+              type: 'ORDER_UPDATE',
+              title: 'Order Accepted ✅',
+              body: 'Your order ORD-20250130-0001 has been accepted!',
+              is_read: false,
+              data: { order_id: 'uuid', status: 'ACCEPTED' },
+              created_at: '2025-01-30T10:00:00Z',
+            },
+          ],
+          unread_count: 5,
+        },
+        pagination: {
+          page: 1,
+          limit: 20,
+          total: 25,
+          total_pages: 2,
+          has_more: true,
+        },
+      },
+    },
+  })
   async getNotifications(
     @CurrentUser() user: CurrentUserPayload,
     @Query() pagination?: PaginationQueryDto,

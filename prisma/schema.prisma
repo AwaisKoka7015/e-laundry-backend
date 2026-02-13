@@ -30,9 +30,13 @@ enum Gender {
 }
 
 enum AccountStatus {
-  PENDING     // Waiting for admin review/setup
-  ACTIVE      // Approved and visible to customers
-  BLOCKED     // Blocked by admin
+  PENDING           // Generic pending state
+  PENDING_ROLE      // Waiting for role selection
+  PENDING_LOCATION  // Waiting for location update
+  ACTIVE            // Approved and visible to customers
+  BLOCKED           // Blocked by admin
+  SUSPENDED         // Temporarily suspended
+  DELETED           // Soft deleted
 }
 
 enum ClothingType {
@@ -131,8 +135,9 @@ model User {
   address_text   String?
   city           String?
   
+  password       String?
   fcm_token      String?
-  
+
   created_at     DateTime      @default(now())
   updated_at     DateTime      @updatedAt
   last_login     DateTime?

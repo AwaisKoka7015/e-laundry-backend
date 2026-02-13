@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,6 +20,8 @@ export interface UploadOptions {
 
 @Injectable()
 export class UploadService {
+  private readonly logger = new Logger(UploadService.name);
+
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
@@ -58,7 +60,7 @@ export class UploadService {
         public_id: result.public_id,
       };
     } catch (error) {
-      console.error('Cloudinary upload error:', error);
+      this.logger.error('Cloudinary upload error:', error);
       throw new BadRequestException('Failed to upload image');
     }
   }
@@ -119,7 +121,7 @@ export class UploadService {
       await cloudinary.uploader.destroy(publicId);
       return { success: true };
     } catch (error) {
-      console.error('Cloudinary delete error:', error);
+      this.logger.error('Cloudinary delete error:', error);
       throw new BadRequestException('Failed to delete image');
     }
   }
@@ -129,7 +131,7 @@ export class UploadService {
       await cloudinary.api.delete_resources(publicIds);
       return { success: true, deleted: publicIds.length };
     } catch (error) {
-      console.error('Cloudinary bulk delete error:', error);
+      this.logger.error('Cloudinary bulk delete error:', error);
       throw new BadRequestException('Failed to delete images');
     }
   }

@@ -10,70 +10,82 @@ export class LaundryAutoApprovalService {
   constructor(private prisma: PrismaService) {}
 
   /**
-   * Runs every minute to check for laundries that should be auto-approved
-   * Auto-approves laundries that have been pending for longer than LAUNDRY_AUTO_APPROVE_MINUTES
+   * Runs every minute to check for laundries that should be auto-approved.
+   * Approves laundries where:
+   *   - status is PENDING/PENDING_LOCATION/PENDING_ROLE
+   *   - setup_at is set (admin has set up the laundry)
+   *   - approved_at is null (not yet approved)
+   *   - setup_at is older than LAUNDRY_AUTO_APPROVE_MINUTES (default 5 for dev)
    */
   @Cron(CronExpression.EVERY_MINUTE)
   async handleAutoApproval() {
-    const autoApproveMinutes = parseInt(process.env.LAUNDRY_AUTO_APPROVE_MINUTES || '120', 10);
+    const autoApproveMinutes = parseInt(
+      process.env.LAUNDRY_AUTO_APPROVE_MINUTES || '5',
+      10,
+    );
     const cutoffTime = new Date(Date.now() - autoApproveMinutes * 60 * 1000);
 
     this.logger.debug(
-      `Checking for laundries to auto-approve (pending since before ${cutoffTime.toISOString()})`,
+      `Checking for laundries to auto-approve (setup before ${cutoffTime.toISOString()}, ${autoApproveMinutes}min window)`,
     );
 
     try {
-      // Find laundries that are pending and created before the cutoff time
-      const pendingLaundries = await this.prisma.laundry.findMany({
+      const pendingStatuses = [
+        AccountStatus.PENDING,
+        AccountStatus.PENDING_LOCATION,
+        AccountStatus.PENDING_ROLE,
+      ];
+
+      // Find laundries that have been set up by admin but not yet approved
+      const laundriesToApprove = await this.prisma.laundry.findMany({
         where: {
-          OR: [{ status: AccountStatus.PENDING_LOCATION }, { status: AccountStatus.PENDING_ROLE }],
-          created_at: { lte: cutoffTime },
+          status: { in: pendingStatuses },
+          setup_at: { not: null, lte: cutoffTime },
+          approved_at: null,
         },
         select: {
           id: true,
           laundry_name: true,
           phone_number: true,
-          created_at: true,
+          setup_at: true,
         },
       });
 
-      if (pendingLaundries.length === 0) {
+      if (laundriesToApprove.length === 0) {
         this.logger.debug('No laundries to auto-approve');
         return;
       }
 
-      this.logger.log(`Found ${pendingLaundries.length} laundries to auto-approve`);
+      this.logger.log(
+        `Found ${laundriesToApprove.length} laundries to auto-approve`,
+      );
 
-      // Auto-approve each laundry
-      for (const laundry of pendingLaundries) {
-        await this.approvelaundry(laundry.id, laundry.laundry_name || laundry.phone_number);
+      // Approve all eligible laundries in a transaction
+      const approved = await this.prisma.$transaction(
+        laundriesToApprove.map((laundry) =>
+          this.prisma.laundry.update({
+            where: { id: laundry.id },
+            data: {
+              status: AccountStatus.ACTIVE,
+              is_verified: true,
+              is_open: true,
+              approved_at: new Date(),
+            },
+          }),
+        ),
+      );
+
+      for (const laundry of approved) {
+        this.logger.log(
+          `Auto-approved laundry: ${laundry.laundry_name || laundry.phone_number} (${laundry.id})`,
+        );
       }
 
-      this.logger.log(`Successfully auto-approved ${pendingLaundries.length} laundries`);
+      this.logger.log(
+        `Successfully auto-approved ${approved.length} laundries`,
+      );
     } catch (error) {
       this.logger.error('Error during auto-approval process', error);
-    }
-  }
-
-  /**
-   * Approve a single laundry - set status to ACTIVE and is_verified to true
-   */
-  private async approvelaundry(laundryId: string, laundryName: string) {
-    try {
-      await this.prisma.laundry.update({
-        where: { id: laundryId },
-        data: {
-          status: AccountStatus.ACTIVE,
-          is_verified: true,
-        },
-      });
-
-      this.logger.log(`Auto-approved laundry: ${laundryName} (${laundryId})`);
-
-      // Optionally: Send notification to laundry about approval
-      // This can be implemented later if needed
-    } catch (error) {
-      this.logger.error(`Failed to auto-approve laundry ${laundryId}`, error);
     }
   }
 
@@ -81,7 +93,10 @@ export class LaundryAutoApprovalService {
    * Get the current auto-approve configuration
    */
   getAutoApproveConfig() {
-    const autoApproveMinutes = parseInt(process.env.LAUNDRY_AUTO_APPROVE_MINUTES || '120', 10);
+    const autoApproveMinutes = parseInt(
+      process.env.LAUNDRY_AUTO_APPROVE_MINUTES || '5',
+      10,
+    );
     return {
       auto_approve_minutes: autoApproveMinutes,
       auto_approve_hours: autoApproveMinutes / 60,

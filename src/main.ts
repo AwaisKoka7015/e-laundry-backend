@@ -1,21 +1,36 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { json, urlencoded } from 'express';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
+
+  // Security headers
+  app.use(helmet());
 
   // Increase body size limit for file uploads (50MB)
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ extended: true, limit: '50mb' }));
 
-  // Enable CORS
+  // CORS
+  const corsOrigins = process.env.CORS_ORIGINS?.split(',') || [
+    'http://localhost:5173',
+    'http://localhost:3000',
+  ];
   app.enableCors({
-    origin: true,
+    origin: corsOrigins,
     credentials: true,
   });
+
+  // Global exception filter and logging
+  app.useGlobalFilters(new AllExceptionsFilter());
+  app.useGlobalInterceptors(new LoggingInterceptor());
 
   // Global validation pipe
   app.useGlobalPipes(
@@ -48,6 +63,10 @@ Complete backend API for the E-Laundry application targeting Pakistani users.
 4. **Update Location**: User submits location → Completes registration
 5. **Login Complete**: JWT tokens issued (access + refresh)
 
+### Admin Login:
+- \`POST /api/admin/login\` with email + password
+- All other admin endpoints require Bearer token with ADMIN role
+
 ### Token Usage:
 - Access Token: Short-lived (15 min), used for API requests
 - Refresh Token: Long-lived (7 days), used to get new access token
@@ -75,7 +94,8 @@ PENDING → ACCEPTED → PICKUP_SCHEDULED → PICKED_UP → PROCESSING → READY
       },
       'access-token',
     )
-    .addTag('Auth', 'Authentication endpoints')
+    .addTag('Auth', 'Authentication & device registration')
+    .addTag('Admin', 'Admin panel endpoints (requires ADMIN role)')
     .addTag('Profile', 'User profile management')
     .addTag('Upload', 'File upload endpoints')
     .addTag('Categories', 'Service categories')
@@ -93,11 +113,14 @@ PENDING → ACCEPTED → PICKUP_SCHEDULED → PICKED_UP → PROCESSING → READY
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
 
+  // Graceful shutdown
+  app.enableShutdownHooks();
+
   const port = process.env.PORT || 8000;
   await app.listen(port, '0.0.0.0');
 
-  console.log(`🚀API is running on: http://localhost:${port}`);
-  console.log(`📚 docs available at: http://localhost:${port}/docs`);
+  logger.log(`API is running on: http://localhost:${port}`);
+  logger.log(`Docs available at: http://localhost:${port}/docs`);
 }
 
 bootstrap();

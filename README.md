@@ -8,18 +8,22 @@ Complete backend API for the E-Laundry application targeting Pakistani users.
 - **Database**: PostgreSQL with Prisma ORM
 - **Authentication**: JWT (Access + Refresh tokens)
 - **File Storage**: Cloudinary
+- **Push Notifications**: Firebase Cloud Messaging (FCM)
 - **Documentation**: Swagger/OpenAPI
 - **Validation**: class-validator + class-transformer
+- **Scheduling**: @nestjs/schedule for cron jobs
 
 ## Features
 
 ### Phase 1 - Authentication
 - ✅ Phone-based OTP authentication (Pakistan format)
+- ✅ Firebase Phone Auth integration (production)
 - ✅ Role selection (CUSTOMER / LAUNDRY)
 - ✅ Location-based registration
 - ✅ JWT token management (access + refresh)
 - ✅ Profile management
 - ✅ Image uploads to Cloudinary
+- ✅ FCM device registration for push notifications
 
 ### Phase 2 - Core Features
 - ✅ Service categories & clothing items
@@ -32,6 +36,24 @@ Complete backend API for the E-Laundry application targeting Pakistani users.
 - ✅ Promo code validation
 - ✅ Notifications system
 
+### Phase 3 - Push Notifications
+- ✅ FCM token registration/unregistration
+- ✅ Automatic push on order status changes
+- ✅ New order notifications for laundries
+- ✅ Order cancellation notifications
+- ✅ In-app notification storage & retrieval
+
+### Admin Features
+- ✅ User management (suspend/activate/delete)
+- ✅ Laundry management (verify/block/approve)
+- ✅ Order management (status updates)
+- ✅ Category & clothing item CRUD
+- ✅ Promo code management
+- ✅ Review moderation
+- ✅ Dashboard analytics
+- ✅ App settings management
+- ✅ Bulk notification sending
+
 ## Project Structure
 
 ```
@@ -40,24 +62,27 @@ src/
 ├── app.module.ts           # Root module
 ├── prisma/                 # Database service
 ├── common/                 # Shared utilities
-│   ├── decorators/         # Custom decorators
-│   ├── guards/             # Auth guards
+│   ├── decorators/         # Custom decorators (@CurrentUser, @Roles, @Public)
+│   ├── guards/             # Auth guards (JwtAuthGuard, RolesGuard)
 │   ├── filters/            # Exception filters
 │   ├── interceptors/       # Response interceptors
-│   └── dto/                # Common DTOs
+│   └── dto/                # Common DTOs (pagination)
 ├── auth/                   # Authentication module
 ├── users/                  # Customer management
 ├── laundries/              # Laundry management
 ├── categories/             # Service categories
 ├── clothing-items/         # Clothing items master
-├── services/               # Laundry services
+├── services/               # Laundry services & pricing
 ├── search/                 # Search & discovery
 ├── orders/                 # Order management
 ├── reviews/                # Reviews & ratings
 ├── dashboard/              # Analytics dashboards
 ├── promo/                  # Promo codes
-├── notifications/          # Notifications
-└── upload/                 # File uploads
+├── notifications/          # Push & in-app notifications
+├── upload/                 # File uploads (Cloudinary)
+├── firebase/               # Firebase Admin SDK (FCM, Auth)
+├── scheduler/              # Cron jobs (laundry auto-approval)
+└── admin/                  # Admin panel APIs
 ```
 
 ## Installation
@@ -67,6 +92,7 @@ src/
 - Node.js 18+
 - PostgreSQL 14+
 - npm or yarn
+- Firebase project (for push notifications)
 
 ### Setup
 
@@ -101,8 +127,8 @@ npm run start:dev
 ```
 
 5. **Access the API**
-- API: http://localhost:3000/api
-- Swagger Docs: http://localhost:3000/docs
+- API: http://localhost:8000/api
+- Swagger Docs: http://localhost:8000/docs
 
 ## Environment Variables
 
@@ -111,18 +137,26 @@ npm run start:dev
 DATABASE_URL="postgresql://user:password@localhost:5432/elaundry"
 
 # JWT
-JWT_SECRET="your-secret-key"
-JWT_ACCESS_EXPIRATION="15m"
-JWT_REFRESH_EXPIRATION="7d"
+JWT_ACCESS_SECRET="your-super-secret-jwt-key"
+JWT_ACCESS_EXPIRES_IN="15m"
+JWT_REFRESH_EXPIRES_IN="7d"
 
 # Cloudinary
 CLOUDINARY_CLOUD_NAME="your-cloud"
 CLOUDINARY_API_KEY="your-key"
 CLOUDINARY_API_SECRET="your-secret"
 
+# Firebase (for push notifications & phone auth)
+FIREBASE_PROJECT_ID="your-project-id"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com"
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+
 # App
 NODE_ENV="development"
-PORT=3000
+PORT=8000
+
+# Laundry Auto-Approval (minutes)
+LAUNDRY_AUTO_APPROVE_MINUTES=1  # Dev: 1, Prod: 120
 ```
 
 ## API Endpoints
@@ -132,11 +166,19 @@ PORT=3000
 |--------|----------|-------------|
 | POST | /api/auth/send-otp | Send OTP to phone |
 | POST | /api/auth/verify-otp | Verify OTP |
+| POST | /api/auth/firebase | Firebase phone auth |
 | POST | /api/auth/select-role | Select user role |
 | POST | /api/auth/update-location | Update location |
 | POST | /api/auth/refresh-token | Refresh access token |
 | POST | /api/auth/logout | Logout user |
 | GET | /api/auth/me | Get current user |
+| GET | /api/auth/status | Get account status |
+
+### Device Registration (Push Notifications)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /api/auth/register-device | Register FCM token |
+| POST | /api/auth/unregister-device | Remove FCM token |
 
 ### Profile
 | Method | Endpoint | Description |
@@ -149,7 +191,17 @@ PORT=3000
 | GET | /api/categories | List categories |
 | GET | /api/clothing-items | List clothing items |
 
-### Laundry Services
+### Laundries (Public)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/laundries | List active laundries |
+| GET | /api/laundries/nearby | Find nearby laundries |
+| GET | /api/laundries/top-rated | Top rated laundries |
+| GET | /api/laundries/:id | Get laundry details |
+| GET | /api/laundries/:id/services | Get laundry services |
+| GET | /api/laundries/:id/reviews | Get laundry reviews |
+
+### Laundry Services (Laundry Role)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | /api/laundry/services | Get my services |
@@ -159,14 +211,7 @@ PORT=3000
 | DELETE | /api/laundry/services/:id | Delete service |
 | GET | /api/laundry/services/:id/pricing | Get pricing |
 | POST | /api/laundry/services/:id/pricing | Set bulk pricing |
-
-### Search
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /api/search/laundries | Search nearby laundries |
-| GET | /api/laundries/:id | Get laundry details |
-| GET | /api/laundries/:id/services | Get laundry services |
-| GET | /api/laundries/:id/reviews | Get laundry reviews |
+| PATCH | /api/laundry/toggle-open | Toggle shop open/close |
 
 ### Orders - Customer
 | Method | Endpoint | Description |
@@ -198,12 +243,16 @@ PORT=3000
 | GET | /api/customer/dashboard | Customer dashboard |
 | GET | /api/laundry/dashboard | Laundry dashboard |
 
-### Promo & Notifications
+### Promo Codes
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | /api/promo/validate | Validate promo code |
-| GET | /api/notifications | Get notifications |
-| POST | /api/notifications | Mark as read |
+
+### Notifications
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/notifications | Get my notifications |
+| POST | /api/notifications | Mark multiple as read |
 | POST | /api/notifications/:id | Mark single as read |
 
 ### Upload
@@ -219,11 +268,64 @@ PENDING → ACCEPTED → PICKUP_SCHEDULED → PICKED_UP → PROCESSING → READY
 REJECTED  CANCELLED     CANCELLED        CANCELLED
 ```
 
+**Push notifications are sent automatically at each status change.**
+
+## Push Notifications
+
+### Setup (Mobile App)
+
+1. **Integrate Firebase SDK** in your mobile app
+2. **Get FCM Token** after user authentication:
+   ```kotlin
+   // Android
+   FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+       // Send to backend
+   }
+   ```
+   ```swift
+   // iOS
+   Messaging.messaging().token { token, error in
+       // Send to backend
+   }
+   ```
+
+3. **Register device** with backend:
+   ```bash
+   POST /api/auth/register-device
+   Authorization: Bearer <access_token>
+   Content-Type: application/json
+
+   { "fcm_token": "your-fcm-token" }
+   ```
+
+### Notification Types
+
+| Type | Trigger | Recipient |
+|------|---------|-----------|
+| `ORDER_UPDATE` | Status change | Customer |
+| `NEW_ORDER` | Order placed | Laundry |
+| `ORDER_CANCELLED` | Customer cancels | Laundry |
+| `PROMO` | Admin sends | Users |
+| `SYSTEM` | Admin sends | All |
+| `WELCOME` | Registration | New user |
+
+### Status Change Messages
+
+| Status | Customer Notification |
+|--------|----------------------|
+| ACCEPTED | "Order Accepted ✅ - Your order has been accepted!" |
+| PICKED_UP | "Clothes Picked Up 🚚 - Your clothes have been picked up" |
+| PROCESSING | "Processing Started 🧺 - Your order is being cleaned" |
+| READY | "Ready for Delivery 📦 - Your order is ready!" |
+| OUT_FOR_DELIVERY | "Out for Delivery 🚗 - Your order is on the way!" |
+| DELIVERED | "Delivered ✨ - Your order has been delivered!" |
+| COMPLETED | "Order Completed 🎉 - Please rate your experience!" |
+
 ## Development Notes
 
 ### OTP for Development
 - OTP is always `0000` in development mode
-- In production, integrate with SMS service
+- In production, use Firebase Phone Auth
 
 ### Pricing Model
 - **Per Piece**: Fixed price per item (e.g., Shirt = ₨50)
@@ -238,6 +340,11 @@ The seed script creates:
 - 3 promo codes (WELCOME50, FIRST100, FLAT20)
 - 6 app settings
 
+### Laundry Auto-Approval
+- Laundries are auto-approved after setup by admin
+- Configurable via `LAUNDRY_AUTO_APPROVE_MINUTES`
+- Cron job runs every minute to check pending laundries
+
 ## Scripts
 
 ```bash
@@ -250,13 +357,15 @@ npm run start:prod
 
 # Database
 npm run prisma:generate   # Generate Prisma client
-npm run prisma:migrate    # Run migrations
+npm run prisma:migrate    # Run migrations (dev)
+npm run prisma:migrate:prod # Run migrations (prod)
 npm run prisma:seed       # Seed database
 npm run prisma:studio     # Open Prisma Studio
 npm run db:reset          # Reset and reseed
 
 # Testing
 npm run test
+npm run test:watch
 npm run test:e2e
 npm run test:cov
 
@@ -283,6 +392,21 @@ npm run prisma:migrate:prod
 ```bash
 npm run start:prod
 ```
+
+## Admin Panel
+
+A separate React admin panel is available at `e-laundry-admin/`.
+
+**Admin API Endpoints:** All under `/api/admin/`
+- Dashboard & analytics
+- User management
+- Laundry management & approval
+- Order management
+- Category & item management
+- Promo code management
+- Review moderation
+- Notification sending
+- App settings
 
 ## Contributing
 

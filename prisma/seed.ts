@@ -2,11 +2,32 @@
 // Run: npx prisma db seed
 
 import { PrismaClient, ClothingType } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 Starting seed...\n');
+
+  // ============================================
+  // ADMIN USER
+  // ============================================
+  console.log('👤 Seeding admin user...');
+
+  const hashedPassword = await bcrypt.hash('admin123', 10);
+  await prisma.user.upsert({
+    where: { email: 'admin@elaundry.pk' },
+    update: { password: hashedPassword, role: 'ADMIN', status: 'ACTIVE' },
+    create: {
+      phone_number: '+920000000000',
+      name: 'Admin',
+      email: 'admin@elaundry.pk',
+      password: hashedPassword,
+      role: 'ADMIN',
+      status: 'ACTIVE',
+    },
+  });
+  console.log('   ✅ Admin user seeded (admin@elaundry.pk / admin123)');
 
   // ============================================
   // SERVICE CATEGORIES

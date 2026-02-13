@@ -8,3 +8,4 @@ export * from './admin-promo-codes.dto';
 export * from './admin-dashboard.dto';
 export * from './admin-notifications.dto';
 export * from './admin-settings.dto';
+export * from './admin-auth.dto';

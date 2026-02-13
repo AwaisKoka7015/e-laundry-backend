@@ -3,13 +3,20 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateOrderDto, UpdateOrderStatusDto, CancelOrderDto } from './dto';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(OrdersService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   // Order status flow
   private readonly STATUS_FLOW: Record<string, string[]> = {
@@ -203,6 +210,19 @@ export class OrdersService {
       },
     });
 
+    // Notify laundry about new order
+    try {
+      await this.notificationsService.notifyLaundryNewOrder(
+        dto.laundry_id,
+        order.id,
+        orderNumber,
+      );
+      this.logger.log(`New order notification sent to laundry for order ${orderNumber}`);
+    } catch (error) {
+      // Don't fail order creation if notification fails
+      this.logger.error(`Failed to send new order notification:`, error);
+    }
+
     return { order };
   }
 
@@ -322,6 +342,19 @@ export class OrdersService {
         changed_by: customerId,
       },
     });
+
+    // Notify laundry about cancellation
+    try {
+      await this.notificationsService.notifyLaundryCancellation(
+        order.laundry_id,
+        orderId,
+        order.order_number,
+        dto.reason,
+      );
+      this.logger.log(`Cancellation notification sent for order ${order.order_number}`);
+    } catch (error) {
+      this.logger.error(`Failed to send cancellation notification:`, error);
+    }
 
     return { message: 'Order cancelled successfully' };
   }
@@ -475,6 +508,20 @@ export class OrdersService {
         customer: true,
       },
     });
+
+    // Send push notification to customer about status change
+    try {
+      await this.notificationsService.notifyCustomerOrderStatus(
+        order.customer_id,
+        orderId,
+        order.order_number,
+        dto.status,
+      );
+      this.logger.log(`Notification sent for order ${order.order_number} status: ${dto.status}`);
+    } catch (error) {
+      // Don't fail the status update if notification fails
+      this.logger.error(`Failed to send notification for order ${orderId}:`, error);
+    }
 
     return { order: updatedOrder };
   }
