@@ -58,9 +58,7 @@ describe('OrdersService', () => {
 
   describe('getCustomerOrders', () => {
     it('should return paginated orders', async () => {
-      const mockOrders = [
-        { id: 'order-1', order_number: 'ORD-001', status: 'PENDING' },
-      ];
+      const mockOrders = [{ id: 'order-1', order_number: 'ORD-001', status: 'PENDING' }];
 
       (prisma.order.findMany as jest.Mock).mockResolvedValue(mockOrders);
       (prisma.order.count as jest.Mock).mockResolvedValue(1);
@@ -97,11 +95,9 @@ describe('OrdersService', () => {
       (prisma.orderStatusHistory.create as jest.Mock).mockResolvedValue({});
       (prisma.orderTimeline.create as jest.Mock).mockResolvedValue({});
 
-      const result = await service.updateOrderStatus(
-        'order-id',
-        'laundry-id',
-        { status: 'ACCEPTED' } as any,
-      );
+      const result = await service.updateOrderStatus('order-id', 'laundry-id', {
+        status: 'ACCEPTED',
+      } as any);
 
       expect(result.order!.status).toBe('ACCEPTED');
     });

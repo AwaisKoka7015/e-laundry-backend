@@ -399,6 +399,8 @@ export class LaundriesService {
       is_open: laundry.is_open,
       address_text: laundry.address_text,
       city: laundry.city,
+      latitude: laundry.latitude,
+      longitude: laundry.longitude,
     };
   }
 

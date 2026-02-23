@@ -57,18 +57,18 @@ describe('AdminService', () => {
     it('should throw UnauthorizedException on invalid email', async () => {
       (prisma.user.findFirst as jest.Mock).mockResolvedValue(null);
 
-      await expect(
-        service.adminLogin('wrong@email.com', 'password'),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(service.adminLogin('wrong@email.com', 'password')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('should throw UnauthorizedException on invalid password', async () => {
       (prisma.user.findFirst as jest.Mock).mockResolvedValue(mockAdmin);
       jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(false));
 
-      await expect(
-        service.adminLogin('admin@elaundry.pk', 'wrongpassword'),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(service.adminLogin('admin@elaundry.pk', 'wrongpassword')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('should throw UnauthorizedException for suspended admin', async () => {
@@ -78,9 +78,9 @@ describe('AdminService', () => {
       });
       jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(true));
 
-      await expect(
-        service.adminLogin('admin@elaundry.pk', 'admin123'),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(service.adminLogin('admin@elaundry.pk', 'admin123')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 
@@ -109,17 +109,13 @@ describe('AdminService', () => {
         role: 'CUSTOMER',
       });
 
-      await expect(service.getAdminProfile('user-id')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.getAdminProfile('user-id')).rejects.toThrow(NotFoundException);
     });
 
     it('should throw NotFoundException for non-existent user', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.getAdminProfile('fake-id')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.getAdminProfile('fake-id')).rejects.toThrow(NotFoundException);
     });
   });
 });

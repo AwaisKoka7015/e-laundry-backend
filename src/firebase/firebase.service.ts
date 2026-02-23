@@ -140,8 +140,10 @@ export class FirebaseService implements OnModuleInit {
       this.logger.error('Failed to send push notification:', error);
 
       // Handle invalid token - token might be expired or unregistered
-      if (error.code === 'messaging/invalid-registration-token' ||
-          error.code === 'messaging/registration-token-not-registered') {
+      if (
+        error.code === 'messaging/invalid-registration-token' ||
+        error.code === 'messaging/registration-token-not-registered'
+      ) {
         return { success: false, error: 'Invalid or expired FCM token' };
       }
 
@@ -167,7 +169,7 @@ export class FirebaseService implements OnModuleInit {
       return { successCount: 0, failureCount: fcmTokens.length };
     }
 
-    const validTokens = fcmTokens.filter(token => token && token.length > 0);
+    const validTokens = fcmTokens.filter((token) => token && token.length > 0);
     if (validTokens.length === 0) {
       return { successCount: 0, failureCount: 0 };
     }
@@ -198,7 +200,9 @@ export class FirebaseService implements OnModuleInit {
       };
 
       const response = await admin.messaging().sendEachForMulticast(message);
-      this.logger.log(`Push notifications sent: ${response.successCount} success, ${response.failureCount} failed`);
+      this.logger.log(
+        `Push notifications sent: ${response.successCount} success, ${response.failureCount} failed`,
+      );
       return {
         successCount: response.successCount,
         failureCount: response.failureCount,

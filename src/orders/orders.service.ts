@@ -212,11 +212,7 @@ export class OrdersService {
 
     // Notify laundry about new order
     try {
-      await this.notificationsService.notifyLaundryNewOrder(
-        dto.laundry_id,
-        order.id,
-        orderNumber,
-      );
+      await this.notificationsService.notifyLaundryNewOrder(dto.laundry_id, order.id, orderNumber);
       this.logger.log(`New order notification sent to laundry for order ${orderNumber}`);
     } catch (error) {
       // Don't fail order creation if notification fails

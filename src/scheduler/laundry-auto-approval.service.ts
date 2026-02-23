@@ -19,10 +19,7 @@ export class LaundryAutoApprovalService {
    */
   @Cron(CronExpression.EVERY_MINUTE)
   async handleAutoApproval() {
-    const autoApproveMinutes = parseInt(
-      process.env.LAUNDRY_AUTO_APPROVE_MINUTES || '5',
-      10,
-    );
+    const autoApproveMinutes = parseInt(process.env.LAUNDRY_AUTO_APPROVE_MINUTES || '5', 10);
     const cutoffTime = new Date(Date.now() - autoApproveMinutes * 60 * 1000);
 
     this.logger.debug(
@@ -56,9 +53,7 @@ export class LaundryAutoApprovalService {
         return;
       }
 
-      this.logger.log(
-        `Found ${laundriesToApprove.length} laundries to auto-approve`,
-      );
+      this.logger.log(`Found ${laundriesToApprove.length} laundries to auto-approve`);
 
       // Approve all eligible laundries in a transaction
       const approved = await this.prisma.$transaction(
@@ -81,9 +76,7 @@ export class LaundryAutoApprovalService {
         );
       }
 
-      this.logger.log(
-        `Successfully auto-approved ${approved.length} laundries`,
-      );
+      this.logger.log(`Successfully auto-approved ${approved.length} laundries`);
     } catch (error) {
       this.logger.error('Error during auto-approval process', error);
     }
@@ -93,10 +86,7 @@ export class LaundryAutoApprovalService {
    * Get the current auto-approve configuration
    */
   getAutoApproveConfig() {
-    const autoApproveMinutes = parseInt(
-      process.env.LAUNDRY_AUTO_APPROVE_MINUTES || '5',
-      10,
-    );
+    const autoApproveMinutes = parseInt(process.env.LAUNDRY_AUTO_APPROVE_MINUTES || '5', 10);
     return {
       auto_approve_minutes: autoApproveMinutes,
       auto_approve_hours: autoApproveMinutes / 60,

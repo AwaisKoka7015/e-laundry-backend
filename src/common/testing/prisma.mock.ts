@@ -1,9 +1,7 @@
 import { PrismaService } from '../../prisma/prisma.service';
 
 export type MockPrismaService = {
-  [K in keyof PrismaService]: K extends `$${string}`
-    ? jest.Mock
-    : Record<string, jest.Mock>;
+  [K in keyof PrismaService]: K extends `$${string}` ? jest.Mock : Record<string, jest.Mock>;
 };
 
 export const createMockPrismaService = (): MockPrismaService => {

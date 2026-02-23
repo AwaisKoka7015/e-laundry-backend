@@ -22,6 +22,7 @@ import { AdminModule } from './admin/admin.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { HealthModule } from './health/health.module';
 import { ContactModule } from './contact/contact.module';
+import { DeliveryModule } from './delivery/delivery.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { ContactModule } from './contact/contact.module';
     SchedulerModule,
     HealthModule,
     ContactModule,
+    DeliveryModule,
   ],
   providers: [
     {

@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -75,10 +80,7 @@ export class AdminService {
     };
 
     const accessToken = this.jwtService.sign(payload);
-    const refreshToken = this.jwtService.sign(
-      { ...payload, type: 'refresh' },
-      { expiresIn: '7d' },
-    );
+    const refreshToken = this.jwtService.sign({ ...payload, type: 'refresh' }, { expiresIn: '7d' });
 
     await this.prisma.user.update({
       where: { id: user.id },
@@ -459,18 +461,21 @@ export class AdminService {
     };
   }
 
-  async updateLaundry(id: string, data: {
-    laundry_name?: string;
-    email?: string;
-    phone_number?: string;
-    description?: string;
-    address_text?: string;
-    city?: string;
-    near_landmark?: string;
-    latitude?: number;
-    longitude?: number;
-    working_hours?: Record<string, any>;
-  }) {
+  async updateLaundry(
+    id: string,
+    data: {
+      laundry_name?: string;
+      email?: string;
+      phone_number?: string;
+      description?: string;
+      address_text?: string;
+      city?: string;
+      near_landmark?: string;
+      latitude?: number;
+      longitude?: number;
+      working_hours?: Record<string, any>;
+    },
+  ) {
     const laundry = await this.prisma.laundry.findUnique({ where: { id } });
 
     if (!laundry) {
@@ -944,43 +949,47 @@ export class AdminService {
     }
 
     // 4. Default Pakistani prices (PKR) based on item and category
-    const getDefaultPrice = (itemName: string, itemType: string, categoryName: string): { price: number; expressPrice: number } => {
+    const getDefaultPrice = (
+      itemName: string,
+      itemType: string,
+      categoryName: string,
+    ): { price: number; expressPrice: number } => {
       const categoryLower = categoryName.toLowerCase();
       const itemLower = itemName.toLowerCase();
 
       // Base prices for washing (in PKR)
       const washingPrices: Record<string, number> = {
         // MEN
-        'shirt': 70,
+        shirt: 70,
         't-shirt': 60,
         'pants/trousers': 90,
-        'jeans': 110,
-        'shorts': 60,
+        jeans: 110,
+        shorts: 60,
         'suit (2 piece)': 250,
         'suit (3 piece)': 350,
         'blazer/coat': 200,
-        'jacket': 180,
-        'sweater': 120,
-        'hoodie': 130,
-        'kurta': 100,
-        'shalwar': 80,
-        'waistcoat': 100,
-        'sherwani': 500,
-        'underwear': 30,
+        jacket: 180,
+        sweater: 120,
+        hoodie: 130,
+        kurta: 100,
+        shalwar: 80,
+        waistcoat: 100,
+        sherwani: 500,
+        underwear: 30,
         'socks (pair)': 30,
         // WOMEN
-        'blouse': 80,
-        'top': 70,
-        'dress': 150,
-        'skirt': 100,
-        'palazzo': 100,
-        'leggings': 70,
-        'dupatta': 100,
+        blouse: 80,
+        top: 70,
+        dress: 150,
+        skirt: 100,
+        palazzo: 100,
+        leggings: 70,
+        dupatta: 100,
         'scarf/shawl': 120,
-        'saree': 300,
-        'lehenga': 600,
-        'abaya': 200,
-        'hijab': 60,
+        saree: 300,
+        lehenga: 600,
+        abaya: 200,
+        hijab: 60,
         // KIDS
         'kids shirt': 50,
         'kids t-shirt': 40,
@@ -1008,12 +1017,12 @@ export class AdminService {
         'carpet (small)': 500,
         'carpet (medium)': 800,
         'carpet (large)': 1200,
-        'rug': 400,
-        'doormat': 100,
+        rug: 400,
+        doormat: 100,
       };
 
       // Get base washing price
-      let basePrice = washingPrices[itemLower] || 100; // Default 100 PKR
+      const basePrice = washingPrices[itemLower] || 100; // Default 100 PKR
 
       // Adjust price based on category
       let price = basePrice;

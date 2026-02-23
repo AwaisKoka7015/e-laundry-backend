@@ -317,10 +317,7 @@ Register the device's FCM token to receive push notifications.
   })
   @ApiResponse({ status: 400, description: 'FCM token is required' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async registerDevice(
-    @CurrentUser() user: CurrentUserPayload,
-    @Body() dto: RegisterDeviceDto,
-  ) {
+  async registerDevice(@CurrentUser() user: CurrentUserPayload, @Body() dto: RegisterDeviceDto) {
     await this.authService.registerFcmToken(user.sub, user.role, dto.fcm_token);
     return {
       success: true,
