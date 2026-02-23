@@ -331,7 +331,12 @@ export class NotificationsService {
   }
 
   // Notify laundry about order cancellation
-  async notifyLaundryCancellation(laundryId: string, orderId: string, orderNumber: string, reason: string) {
+  async notifyLaundryCancellation(
+    laundryId: string,
+    orderId: string,
+    orderNumber: string,
+    reason: string,
+  ) {
     const title = 'Order Cancelled ❌';
     const body = `Order ${orderNumber} has been cancelled by the customer.`;
 

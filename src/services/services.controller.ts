@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { ServicesService } from './services.service';
 import { CreateServiceDto, UpdateServiceDto, BulkPricingDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards';
-import { CurrentUser, CurrentUserPayload, Roles, RolesGuard } from '../common';
+import { CurrentUser, CurrentUserPayload, Roles, RolesGuard, Public } from '../common';
 
 @Controller()
 export class ServicesController {
@@ -112,6 +112,30 @@ export class ServicesController {
   }
 
   // ==================== PUBLIC ENDPOINTS ====================
+
+  @Public()
+  @Get('services/categories')
+  @ApiTags('Search')
+  @ApiOperation({ summary: 'Get all service categories' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of service categories',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          categories: [
+            { id: 'uuid', name: 'Washing', icon: '🧺', sort_order: 1 },
+            { id: 'uuid', name: 'Ironing', icon: '♨️', sort_order: 2 },
+          ],
+        },
+      },
+    },
+  })
+  async getCategories() {
+    const data = await this.servicesService.getAllCategories();
+    return { success: true, data };
+  }
 
   @Get('laundries/:id/services')
   @ApiTags('Search')

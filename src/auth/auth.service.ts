@@ -882,7 +882,7 @@ export class AuthService {
         10,
       );
 
-      let approvalInfo: {
+      const approvalInfo: {
         is_pending_approval: boolean;
         is_setup_complete: boolean;
         setup_at: Date | null;
@@ -904,7 +904,7 @@ export class AuthService {
 
         // Calculate estimated approval time
         const setupTime = new Date(laundry.setup_at).getTime();
-        const approvalTime = setupTime + (autoApproveMinutes * 60 * 1000);
+        const approvalTime = setupTime + autoApproveMinutes * 60 * 1000;
         const now = Date.now();
         const remainingMs = approvalTime - now;
 

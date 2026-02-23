@@ -223,6 +223,14 @@ export class ServicesService {
     };
   }
 
+  // Get all service categories
+  async getAllCategories() {
+    const categories = await this.prisma.serviceCategory.findMany({
+      orderBy: { sort_order: 'asc' },
+    });
+    return { categories };
+  }
+
   // Get public services for a laundry
   async getPublicServices(laundryId: string) {
     const laundry = await this.prisma.laundry.findUnique({

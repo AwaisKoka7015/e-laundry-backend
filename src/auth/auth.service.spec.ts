@@ -79,9 +79,9 @@ describe('AuthService', () => {
     it('should throw BadRequestException on rate limit', async () => {
       (prisma.tempAccount.count as jest.Mock).mockResolvedValue(5);
 
-      await expect(
-        service.sendOtp({ phone_number: '+923001234567' }),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.sendOtp({ phone_number: '+923001234567' })).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -129,9 +129,9 @@ describe('AuthService', () => {
         throw new Error('invalid token');
       });
 
-      await expect(
-        service.refreshToken({ refresh_token: 'invalid-token' }),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(service.refreshToken({ refresh_token: 'invalid-token' })).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 });
