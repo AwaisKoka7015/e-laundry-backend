@@ -5,6 +5,7 @@ export enum ImageType {
   AVATAR = 'avatar',
   LAUNDRY_LOGO = 'laundry_logo',
   REVIEW = 'review',
+  CNIC = 'cnic',
 }
 
 export class UploadImageDto {

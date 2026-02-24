@@ -86,12 +86,13 @@ export class UploadService {
     userId: string,
     role: string,
     image: string,
-    type: 'avatar' | 'laundry_logo' | 'review',
+    type: 'avatar' | 'laundry_logo' | 'review' | 'cnic',
   ) {
     const folderMap: Record<string, UploadFolder> = {
       avatar: 'avatars',
       laundry_logo: 'laundry_logos',
       review: 'reviews',
+      cnic: 'cnic',
     };
 
     const result = await this.uploadToFolder(folderMap[type], image);

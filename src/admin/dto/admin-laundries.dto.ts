@@ -1,6 +1,11 @@
-import { IsOptional, IsString, IsEnum, IsEmail, IsNumber, IsObject } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsEmail, IsNumber, IsObject, ValidateIf } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationQueryDto } from '../../common';
+
+export enum VerificationAction {
+  APPROVE = 'APPROVE',
+  REJECT = 'REJECT',
+}
 
 export enum LaundryStatusFilter {
   ALL = 'all',
@@ -105,4 +110,34 @@ export class UpdateLaundryDto {
   @IsOptional()
   @IsObject()
   working_hours?: Record<string, any>;
+}
+
+export class PendingVerificationQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ description: 'Search by laundry name or phone number' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by city' })
+  @IsOptional()
+  @IsString()
+  city?: string;
+}
+
+export class AdminReviewVerificationDto {
+  @ApiProperty({
+    enum: VerificationAction,
+    example: VerificationAction.APPROVE,
+    description: 'Action to take: APPROVE or REJECT',
+  })
+  @IsEnum(VerificationAction)
+  action: VerificationAction;
+
+  @ApiPropertyOptional({
+    example: 'CNIC image is blurry, please upload a clearer image',
+    description: 'Reason for rejection (required if action is REJECT)',
+  })
+  @ValidateIf((o) => o.action === VerificationAction.REJECT)
+  @IsString()
+  rejection_reason?: string;
 }

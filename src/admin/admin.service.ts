@@ -42,8 +42,12 @@ import {
   SendNotificationDto,
   SendBulkNotificationDto,
   BulkUpdateSettingsDto,
+  PendingVerificationQueryDto,
+  AdminReviewVerificationDto,
+  VerificationAction,
 } from './dto';
-import { Prisma, AccountStatus } from '@prisma/client';
+import { Prisma, AccountStatus, LaundryVerificationStatus } from '@prisma/client';
+import { BadRequestException } from '@nestjs/common';
 
 @Injectable()
 export class AdminService {
@@ -608,8 +612,8 @@ export class AdminService {
             allPricingData.push({
               laundry_service_id: service.id,
               clothing_item_id: item.id,
-              price: this.getDefaultPrice(category.name, item.name, item.type),
-              express_price: this.getDefaultExpressPrice(category.name, item.name, item.type),
+              price: this.getDefaultPrice(category.name, item.name, item.type || 'MEN'),
+              express_price: this.getDefaultExpressPrice(category.name, item.name, item.type || 'MEN'),
               price_unit: 'PER_PIECE',
               is_available: true,
             });
@@ -746,6 +750,137 @@ export class AdminService {
     });
 
     return updated;
+  }
+
+  // ==================== CNIC VERIFICATION ====================
+
+  async getPendingVerifications(query: PendingVerificationQueryDto) {
+    const { page = 1, limit = 10, search, city } = query;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.LaundryWhereInput = {
+      verification_status: LaundryVerificationStatus.PENDING_REVIEW,
+    };
+
+    if (search) {
+      where.OR = [
+        { laundry_name: { contains: search, mode: 'insensitive' } },
+        { owner_name: { contains: search, mode: 'insensitive' } },
+        { phone_number: { contains: search } },
+        { cnic_number: { contains: search } },
+      ];
+    }
+
+    if (city) {
+      where.city = { contains: city, mode: 'insensitive' };
+    }
+
+    const [laundries, total] = await Promise.all([
+      this.prisma.laundry.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { verification_submitted_at: 'asc' }, // Oldest first
+        select: {
+          id: true,
+          laundry_name: true,
+          owner_name: true,
+          phone_number: true,
+          city: true,
+          cnic_number: true,
+          cnic_front_image: true,
+          cnic_back_image: true,
+          verification_submitted_at: true,
+        },
+      }),
+      this.prisma.laundry.count({ where }),
+    ]);
+
+    return {
+      laundries,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getVerificationDetails(id: string) {
+    const laundry = await this.prisma.laundry.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        laundry_name: true,
+        owner_name: true,
+        phone_number: true,
+        city: true,
+        address_text: true,
+        cnic_number: true,
+        cnic_front_image: true,
+        cnic_back_image: true,
+        verification_status: true,
+        verification_submitted_at: true,
+        verification_reviewed_at: true,
+        verification_rejection_reason: true,
+        is_verified: true,
+        created_at: true,
+      },
+    });
+
+    if (!laundry) {
+      throw new NotFoundException('Laundry not found');
+    }
+
+    return laundry;
+  }
+
+  async reviewVerification(id: string, dto: AdminReviewVerificationDto) {
+    const laundry = await this.prisma.laundry.findUnique({ where: { id } });
+
+    if (!laundry) {
+      throw new NotFoundException('Laundry not found');
+    }
+
+    if (laundry.verification_status !== LaundryVerificationStatus.PENDING_REVIEW) {
+      throw new BadRequestException(
+        `Cannot review verification with status: ${laundry.verification_status}`,
+      );
+    }
+
+    if (dto.action === VerificationAction.REJECT && !dto.rejection_reason) {
+      throw new BadRequestException('Rejection reason is required when rejecting verification');
+    }
+
+    const isApproved = dto.action === VerificationAction.APPROVE;
+
+    const updated = await this.prisma.laundry.update({
+      where: { id },
+      data: {
+        verification_status: isApproved
+          ? LaundryVerificationStatus.APPROVED
+          : LaundryVerificationStatus.REJECTED,
+        verification_reviewed_at: new Date(),
+        verification_rejection_reason: isApproved ? null : dto.rejection_reason,
+        is_verified: isApproved,
+      },
+      select: {
+        id: true,
+        laundry_name: true,
+        verification_status: true,
+        verification_reviewed_at: true,
+        verification_rejection_reason: true,
+        is_verified: true,
+      },
+    });
+
+    return {
+      message: isApproved
+        ? 'Laundry verification approved successfully'
+        : 'Laundry verification rejected',
+      laundry: updated,
+    };
   }
 
   async deleteLaundry(id: string) {
@@ -1077,7 +1212,7 @@ export class AdminService {
 
         // Create pricing for each clothing item with default Pakistani prices
         const pricingData = clothingItems.map((item) => {
-          const { price, expressPrice } = getDefaultPrice(item.name, item.type, category.name);
+          const { price, expressPrice } = getDefaultPrice(item.name, item.type || 'MEN', category.name);
           return {
             laundry_service_id: service.id,
             clothing_item_id: item.id,
@@ -3399,5 +3534,128 @@ export class AdminService {
     });
 
     return categorySettings;
+  }
+
+  // ==================== DEFAULT PRICES ====================
+
+  async getDefaultPrices() {
+    const defaultPrices = await this.prisma.defaultPrice.findMany({
+      include: {
+        clothing_item: {
+          include: {
+            clothing_category: true,
+          },
+        },
+        service_category: true,
+      },
+      orderBy: [
+        { service_category: { sort_order: 'asc' } },
+        { clothing_item: { clothing_category: { sort_order: 'asc' } } },
+        { clothing_item: { sort_order: 'asc' } },
+      ],
+    });
+
+    // Group by service → clothing category → items
+    const servicesMap = new Map<
+      string,
+      {
+        service: { id: string; name: string; name_urdu: string | null };
+        categoriesMap: Map<
+          string,
+          {
+            category: { id: string; name: string; name_urdu: string };
+            items: any[];
+          }
+        >;
+      }
+    >();
+
+    for (const dp of defaultPrices) {
+      const serviceKey = dp.service_category_id;
+      const categoryKey = dp.clothing_item.clothing_category_id || 'uncategorized';
+
+      if (!servicesMap.has(serviceKey)) {
+        servicesMap.set(serviceKey, {
+          service: {
+            id: dp.service_category.id,
+            name: dp.service_category.name,
+            name_urdu: dp.service_category.name_urdu,
+          },
+          categoriesMap: new Map(),
+        });
+      }
+
+      const serviceEntry = servicesMap.get(serviceKey)!;
+      if (!serviceEntry.categoriesMap.has(categoryKey)) {
+        serviceEntry.categoriesMap.set(categoryKey, {
+          category: {
+            id: dp.clothing_item.clothing_category?.id || '',
+            name: dp.clothing_item.clothing_category?.name || 'Other',
+            name_urdu: dp.clothing_item.clothing_category?.name_urdu || 'دیگر',
+          },
+          items: [],
+        });
+      }
+
+      serviceEntry.categoriesMap.get(categoryKey)!.items.push({
+        default_price_id: dp.id,
+        clothing_item: {
+          id: dp.clothing_item.id,
+          name: dp.clothing_item.name,
+          name_urdu: dp.clothing_item.name_urdu,
+          is_popular: dp.clothing_item.is_popular,
+        },
+        price: dp.price,
+      });
+    }
+
+    // Convert to array format
+    const services = Array.from(servicesMap.values()).map((s) => ({
+      service: s.service,
+      categories: Array.from(s.categoriesMap.values()),
+    }));
+
+    return { services, total: defaultPrices.length };
+  }
+
+  async updateDefaultPrice(id: string, price: number) {
+    const defaultPrice = await this.prisma.defaultPrice.findUnique({
+      where: { id },
+    });
+
+    if (!defaultPrice) {
+      throw new NotFoundException('Default price not found');
+    }
+
+    if (price < 0) {
+      throw new ConflictException('Price cannot be negative');
+    }
+
+    const updated = await this.prisma.defaultPrice.update({
+      where: { id },
+      data: { price },
+      include: {
+        clothing_item: true,
+        service_category: true,
+      },
+    });
+
+    return {
+      id: updated.id,
+      clothing_item: updated.clothing_item.name,
+      service_category: updated.service_category.name,
+      price: updated.price,
+    };
+  }
+
+  async getClothingCategories() {
+    return this.prisma.clothingCategory.findMany({
+      orderBy: { sort_order: 'asc' },
+      include: {
+        _count: {
+          select: { clothing_items: true },
+        },
+      },
+    });
   }
 }
