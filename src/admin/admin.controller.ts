@@ -48,6 +48,8 @@ import {
   SendBulkNotificationDto,
   UpdateSettingDto,
   BulkUpdateSettingsDto,
+  PendingVerificationQueryDto,
+  AdminReviewVerificationDto,
 } from './dto';
 
 @ApiTags('Admin')
@@ -331,6 +333,52 @@ export class AdminController {
       success: true,
       message: `${data.approved_count} laundries approved`,
       data,
+    };
+  }
+
+  // ==================== LAUNDRY CNIC VERIFICATION ====================
+
+  @Get('laundries/pending-verification')
+  @ApiOperation({ summary: 'Get laundries with pending CNIC verification' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'city', required: false, type: String })
+  @ApiResponse({ status: 200, description: 'List of laundries pending CNIC verification' })
+  async getPendingVerifications(@Query() query: PendingVerificationQueryDto) {
+    const data = await this.adminService.getPendingVerifications(query);
+    return {
+      success: true,
+      data: { laundries: data.laundries },
+      pagination: data.pagination,
+    };
+  }
+
+  @Get('laundries/:id/verification')
+  @ApiOperation({ summary: 'Get laundry CNIC verification details' })
+  @ApiResponse({ status: 200, description: 'Verification details with CNIC images' })
+  @ApiResponse({ status: 404, description: 'Laundry not found' })
+  async getVerificationDetails(@Param('id') id: string) {
+    const data = await this.adminService.getVerificationDetails(id);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Patch('laundries/:id/verification')
+  @ApiOperation({ summary: 'Approve or reject CNIC verification' })
+  @ApiResponse({ status: 200, description: 'Verification reviewed' })
+  @ApiResponse({ status: 400, description: 'Invalid verification status' })
+  @ApiResponse({ status: 404, description: 'Laundry not found' })
+  async reviewVerification(
+    @Param('id') id: string,
+    @Body() dto: AdminReviewVerificationDto,
+  ) {
+    const data = await this.adminService.reviewVerification(id, dto);
+    return {
+      success: true,
+      ...data,
     };
   }
 
@@ -1073,6 +1121,46 @@ export class AdminController {
     return {
       success: true,
       ...result,
+    };
+  }
+
+  // ==================== DEFAULT PRICES ====================
+
+  @Get('default-prices')
+  @ApiOperation({
+    summary: 'Get all default prices',
+    description: 'Get default prices grouped by service category → clothing category → items',
+  })
+  @ApiResponse({ status: 200, description: 'Default prices retrieved' })
+  async getDefaultPrices() {
+    const data = await this.adminService.getDefaultPrices();
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Put('default-prices/:id')
+  @ApiOperation({ summary: 'Update a default price' })
+  @ApiResponse({ status: 200, description: 'Default price updated' })
+  @ApiResponse({ status: 404, description: 'Default price not found' })
+  async updateDefaultPrice(@Param('id') id: string, @Body() body: { price: number }) {
+    const data = await this.adminService.updateDefaultPrice(id, body.price);
+    return {
+      success: true,
+      message: 'Default price updated successfully',
+      data,
+    };
+  }
+
+  @Get('clothing-categories')
+  @ApiOperation({ summary: 'Get all clothing categories (Men, Women, Kids, Household)' })
+  @ApiResponse({ status: 200, description: 'Clothing categories retrieved' })
+  async getClothingCategories() {
+    const data = await this.adminService.getClothingCategories();
+    return {
+      success: true,
+      data,
     };
   }
 }

@@ -39,6 +39,8 @@ enum AccountStatus {
   DELETED           // Soft deleted
 }
 
+// ClothingType enum kept for backward compatibility during migration
+// Will be replaced by ClothingCategory FK
 enum ClothingType {
   MEN
   WOMEN
@@ -97,6 +99,13 @@ enum DeliveryPartnerStatus {
   ACTIVE
   INACTIVE
   SUSPENDED
+}
+
+enum LaundryVerificationStatus {
+  NOT_SUBMITTED
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
 }
 
 // ============================================
@@ -158,6 +167,7 @@ model Laundry {
   id               String        @id @default(uuid())
   phone_number     String        @unique
   laundry_name     String?
+  owner_name       String?
   email            String?       @unique
   laundry_logo     String?
   shop_images      Json?         // Array of shop image URLs
@@ -169,20 +179,40 @@ model Laundry {
   near_landmark    String?
   address_text     String?
   city             String?
+  area             String?
 
   working_hours    Json?
   description      String?
-  
+
+  // Onboarding progress tracking
+  setup_step       Int           @default(0)      // 1-5 tracks onboarding progress
+  setup_complete   Boolean       @default(false)
+
+  // Business settings
+  min_order_amount Int           @default(200)    // PKR
+  delivery_radius_km Int         @default(3)
+  self_pickup      Boolean       @default(true)
+  self_dropoff     Boolean       @default(true)
+
   rating           Float         @default(0)
   total_orders     Int           @default(0)
   total_reviews    Int           @default(0)
   services_count   Int           @default(0)
-  
+
   fcm_token        String?
   is_verified      Boolean       @default(false)
   is_open          Boolean       @default(false)  // Shop open/close (controlled by laundry)
 
-  // Admin setup tracking
+  // CNIC Verification
+  cnic_number                   String?
+  cnic_front_image              String?           // Cloudinary URL
+  cnic_back_image               String?           // Cloudinary URL
+  verification_status           LaundryVerificationStatus @default(NOT_SUBMITTED)
+  verification_submitted_at     DateTime?
+  verification_reviewed_at      DateTime?
+  verification_rejection_reason String?
+
+  // Legacy admin setup tracking (deprecated)
   setup_at         DateTime?     // When admin clicked "Set Laundry"
   setup_by         String?       // Admin ID who set up
   approved_at      DateTime?     // When cron job approved (2 hours after setup)
@@ -196,6 +226,7 @@ model Laundry {
   orders           Order[]
   reviews          Review[]
   notifications    Notification[]
+  laundry_pricing  LaundryPricing[]
 
   // Indexes for optimized queries
   @@index([status, rating(sort: Desc)])
@@ -205,6 +236,7 @@ model Laundry {
   @@index([status, is_open])              // For filtering open laundries
   @@index([latitude, longitude])
   @@index([status, setup_at, approved_at]) // For cron job approval query
+  @@index([setup_step, setup_complete])    // For onboarding queries
   @@map("laundries")
 }
 
@@ -300,21 +332,45 @@ model OtpLog {
 }
 
 // ============================================
+// CLOTHING CATEGORY (Master Table - Admin Seeded)
+// Men, Women, Kids, Household
+// ============================================
+
+model ClothingCategory {
+  id          String         @id @default(uuid())
+  name        String         @unique  // Men, Women, Kids, Household
+  name_urdu   String                  // مردانہ, زنانہ, بچوں کے, گھریلو
+  icon        String?
+  sort_order  Int            @default(0)
+  is_active   Boolean        @default(true)
+  created_at  DateTime       @default(now())
+  updated_at  DateTime       @updatedAt
+
+  clothing_items ClothingItem[]
+
+  @@map("clothing_categories")
+}
+
+// ============================================
 // SERVICE CATEGORY (Master Table - Admin Seeded)
+// Wash & Iron, Iron Only, Dry Clean
 // ============================================
 
 model ServiceCategory {
-  id          String           @id @default(uuid())
-  name        String           @unique
-  name_urdu   String?
-  icon        String?
-  description String?
-  sort_order  Int              @default(0)
-  is_active   Boolean          @default(true)
-  created_at  DateTime         @default(now())
-  updated_at  DateTime         @updatedAt
-  
-  services    LaundryService[]
+  id              String           @id @default(uuid())
+  name            String           @unique
+  name_urdu       String?
+  icon            String?
+  description     String?
+  estimated_hours Int              @default(24)
+  sort_order      Int              @default(0)
+  is_active       Boolean          @default(true)
+  created_at      DateTime         @default(now())
+  updated_at      DateTime         @updatedAt
+
+  services        LaundryService[]
+  default_prices  DefaultPrice[]
+  laundry_pricing LaundryPricing[]
 
   @@map("service_categories")
 }
@@ -324,22 +380,73 @@ model ServiceCategory {
 // ============================================
 
 model ClothingItem {
-  id           String           @id @default(uuid())
-  name         String
-  name_urdu    String?
-  type         ClothingType
-  icon         String?
-  description  String?
-  sort_order   Int              @default(0)
-  is_active    Boolean          @default(true)
-  created_at   DateTime         @default(now())
-  updated_at   DateTime         @updatedAt
-  
-  pricing      ServicePricing[]
-  order_items  OrderItem[]
+  id                   String           @id @default(uuid())
+  name                 String
+  name_urdu            String?
+  type                 ClothingType?    // Deprecated: use clothing_category_id
+  clothing_category_id String?
+  icon                 String?
+  description          String?
+  is_popular           Boolean          @default(false)
+  sort_order           Int              @default(0)
+  is_active            Boolean          @default(true)
+  created_at           DateTime         @default(now())
+  updated_at           DateTime         @updatedAt
+
+  clothing_category    ClothingCategory? @relation(fields: [clothing_category_id], references: [id])
+  pricing              ServicePricing[]
+  order_items          OrderItem[]
+  default_prices       DefaultPrice[]
+  laundry_pricing      LaundryPricing[]
 
   @@unique([name, type])
+  @@index([clothing_category_id])
   @@map("clothing_items")
+}
+
+// ============================================
+// DEFAULT PRICE (Master Table - Admin Seeded)
+// Default prices for each item × service combination
+// ============================================
+
+model DefaultPrice {
+  id                  String          @id @default(uuid())
+  clothing_item_id    String
+  service_category_id String
+  price               Float
+  created_at          DateTime        @default(now())
+  updated_at          DateTime        @updatedAt
+
+  clothing_item       ClothingItem    @relation(fields: [clothing_item_id], references: [id], onDelete: Cascade)
+  service_category    ServiceCategory @relation(fields: [service_category_id], references: [id], onDelete: Cascade)
+
+  @@unique([clothing_item_id, service_category_id])
+  @@map("default_prices")
+}
+
+// ============================================
+// LAUNDRY PRICING (Per-Laundry Prices)
+// Auto-generated during laundry onboarding Step 3
+// ============================================
+
+model LaundryPricing {
+  id                  String          @id @default(uuid())
+  laundry_id          String
+  service_category_id String
+  clothing_item_id    String
+  price               Float
+  is_active           Boolean         @default(false)
+  created_at          DateTime        @default(now())
+  updated_at          DateTime        @updatedAt
+
+  laundry             Laundry         @relation(fields: [laundry_id], references: [id], onDelete: Cascade)
+  service_category    ServiceCategory @relation(fields: [service_category_id], references: [id], onDelete: Cascade)
+  clothing_item       ClothingItem    @relation(fields: [clothing_item_id], references: [id], onDelete: Cascade)
+
+  @@unique([laundry_id, service_category_id, clothing_item_id])
+  @@index([laundry_id])
+  @@index([service_category_id])
+  @@map("laundry_pricing")
 }
 
 // ============================================
