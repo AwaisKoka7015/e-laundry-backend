@@ -53,14 +53,19 @@ async function main() {
   console.log(`   ✅ ${clothingCategories.length} clothing categories seeded`);
 
   // ============================================
-  // SERVICE CATEGORIES (3)
+  // SERVICE CATEGORIES (4)
   // ============================================
   console.log('📁 Seeding service categories...');
 
+  // Rename legacy names to match app canonical names
+  await prisma.serviceCategory.updateMany({ where: { name: 'Iron Only' }, data: { name: 'Ironing' } });
+  await prisma.serviceCategory.updateMany({ where: { name: 'Dry Clean' }, data: { name: 'Dry Cleaning' } });
+
   const serviceCategories = [
-    { name: 'Wash & Iron', name_urdu: 'دھلائی اور استری', icon: '🧺', description: 'Complete wash and iron service', estimated_hours: 24, sort_order: 1 },
-    { name: 'Iron Only', name_urdu: 'صرف استری', icon: '♨️', description: 'Professional ironing and pressing', estimated_hours: 12, sort_order: 2 },
-    { name: 'Dry Clean', name_urdu: 'ڈرائی کلین', icon: '👔', description: 'Professional dry cleaning for delicate fabrics', estimated_hours: 72, sort_order: 3 },
+    { name: 'Washing', name_urdu: 'دھلائی', icon: '🧺', description: 'Professional washing service', estimated_hours: 24, sort_order: 1 },
+    { name: 'Ironing', name_urdu: 'استری', icon: '♨️', description: 'Professional ironing and pressing', estimated_hours: 12, sort_order: 2 },
+    { name: 'Wash & Iron', name_urdu: 'دھلائی اور استری', icon: '👕', description: 'Complete wash and iron service', estimated_hours: 24, sort_order: 3 },
+    { name: 'Dry Cleaning', name_urdu: 'ڈرائی کلیننگ', icon: '👔', description: 'Professional dry cleaning for delicate fabrics', estimated_hours: 72, sort_order: 4 },
   ];
 
   const serviceMap: Record<string, string> = {};
@@ -179,14 +184,14 @@ async function main() {
       if (ironOnly !== null) {
         defaultPrices.push({
           clothing_item_id: item.id,
-          service_category_id: serviceMap['Iron Only'],
+          service_category_id: serviceMap['Ironing'],
           price: ironOnly,
         });
       }
       if (dryClean !== null) {
         defaultPrices.push({
           clothing_item_id: item.id,
-          service_category_id: serviceMap['Dry Clean'],
+          service_category_id: serviceMap['Dry Cleaning'],
           price: dryClean,
         });
       }

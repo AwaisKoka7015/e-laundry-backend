@@ -48,7 +48,7 @@ export class OrdersController {
     };
   }
 
-  @Post('orders')
+  @Post('checkout')
   @ApiTags('Orders - Customer')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('CUSTOMER')

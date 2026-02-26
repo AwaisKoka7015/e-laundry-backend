@@ -61,14 +61,15 @@ export class OrdersService {
     const orderItems: any[] = [];
 
     for (const item of dto.items) {
-      const pricing = await this.prisma.servicePricing.findFirst({
+      const pricing = await this.prisma.laundryPricing.findFirst({
         where: {
-          laundry_service_id: item.service_id,
+          laundry_id: dto.laundry_id,
+          service_category_id: item.service_id,
           clothing_item_id: item.clothing_item_id,
-          is_available: true,
+          is_active: true,
         },
         include: {
-          laundry_service: true,
+          service_category: true,
           clothing_item: true,
         },
       });
@@ -80,42 +81,32 @@ export class OrdersService {
       }
 
       let itemPrice = pricing.price;
-      let quantity = item.quantity || 1;
+      const quantity = item.quantity || 1;
 
-      // Handle per-kg pricing
-      if (pricing.price_unit === 'PER_KG') {
-        if (!item.weight_kg) {
-          throw new BadRequestException('Weight is required for per-kg pricing');
-        }
-        itemPrice = pricing.price * item.weight_kg;
-        quantity = 1;
-      } else {
-        itemPrice = pricing.price * quantity;
-      }
+      // LaundryPricing is always per-piece
+      itemPrice = pricing.price * quantity;
 
-      // Apply express pricing
-      if (dto.order_type === 'EXPRESS' && pricing.express_price) {
-        itemPrice =
-          pricing.express_price *
-          (pricing.price_unit === 'PER_KG' ? item.weight_kg || 1 : quantity);
+      // Apply express pricing (+50% of base price)
+      if (dto.order_type === 'EXPRESS') {
+        itemPrice = Math.ceil(pricing.price * 1.5) * quantity;
       }
 
       subtotal += itemPrice;
 
       orderItems.push({
-        laundry_service_id: item.service_id,
+        service_category_id: item.service_id,
         clothing_item_id: item.clothing_item_id,
         quantity,
         weight_kg: item.weight_kg,
-        unit_price: pricing.price_unit === 'PER_KG' ? pricing.price : pricing.price,
-        price_unit: pricing.price_unit,
+        unit_price: pricing.price,
+        price_unit: 'PER_PIECE',
         total_price: itemPrice,
         special_notes: item.special_notes,
       });
     }
 
     // Calculate fees
-    const deliveryFee = subtotal >= 1000 ? 0 : 100;
+    const deliveryFee = laundry.free_pickup_delivery ? 0 : subtotal >= 1000 ? 0 : 100;
     const expressFee = dto.order_type === 'EXPRESS' ? subtotal * 0.5 : 0;
 
     // Validate and apply promo code
@@ -148,6 +139,7 @@ export class OrdersService {
         laundry_id: dto.laundry_id,
         status: 'PENDING',
         order_type: dto.order_type || 'STANDARD',
+        pickup_type: dto.pickup_type || 'RIDER_PICKUP',
         pickup_address: dto.pickup_address,
         pickup_latitude: dto.pickup_latitude,
         pickup_longitude: dto.pickup_longitude,
@@ -176,7 +168,7 @@ export class OrdersService {
         items: {
           include: {
             clothing_item: true,
-            laundry_service: true,
+            service_category: true,
           },
         },
         laundry: true,
@@ -275,7 +267,7 @@ export class OrdersService {
         items: {
           include: {
             clothing_item: true,
-            laundry_service: { include: { category: true } },
+            service_category: true,
           },
         },
         laundry: true,

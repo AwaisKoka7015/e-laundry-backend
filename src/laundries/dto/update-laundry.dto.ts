@@ -9,6 +9,7 @@ import {
   Min,
   Max,
   IsObject,
+  IsBoolean,
 } from 'class-validator';
 
 export class UpdateLaundryProfileDto {
@@ -75,4 +76,47 @@ export class UpdateLaundryProfileDto {
   @IsOptional()
   @IsObject()
   working_hours?: Record<string, { open: string; close: string; is_closed?: boolean }>;
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Whether this laundry offers free pickup & delivery',
+  })
+  @IsOptional()
+  @IsBoolean()
+  free_pickup_delivery?: boolean;
+
+  @ApiPropertyOptional({ example: 5, description: 'Delivery radius in km' })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(50)
+  delivery_radius_km?: number;
+
+  @ApiPropertyOptional({ example: 50, description: 'Delivery fee in PKR' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  delivery_fee?: number;
+
+  @ApiPropertyOptional({ example: 1000, description: 'Free delivery above this amount (PKR)' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  free_delivery_threshold?: number;
+
+  @ApiPropertyOptional({ example: 200, description: 'Minimum order amount in PKR' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  min_order_amount?: number;
+
+  @ApiPropertyOptional({ example: true, description: 'Whether self-pickup is available' })
+  @IsOptional()
+  @IsBoolean()
+  self_pickup?: boolean;
+
+  @ApiPropertyOptional({ example: true, description: 'Whether self-dropoff is available' })
+  @IsOptional()
+  @IsBoolean()
+  self_dropoff?: boolean;
 }

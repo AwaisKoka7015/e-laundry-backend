@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "laundries" ADD COLUMN     "delivery_fee" DOUBLE PRECISION NOT NULL DEFAULT 50,
+ADD COLUMN     "free_delivery_threshold" DOUBLE PRECISION NOT NULL DEFAULT 1000;

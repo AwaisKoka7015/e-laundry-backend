@@ -124,9 +124,9 @@ export class ServicesService {
       throw new NotFoundException('Service not found');
     }
 
-    // Check if service has any orders
+    // Check if service has any orders (look up via the service's category)
     const ordersCount = await this.prisma.orderItem.count({
-      where: { laundry_service_id: serviceId },
+      where: { service_category_id: service.category_id },
     });
 
     if (ordersCount > 0) {

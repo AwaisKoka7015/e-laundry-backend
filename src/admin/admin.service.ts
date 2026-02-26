@@ -613,7 +613,11 @@ export class AdminService {
               laundry_service_id: service.id,
               clothing_item_id: item.id,
               price: this.getDefaultPrice(category.name, item.name, item.type || 'MEN'),
-              express_price: this.getDefaultExpressPrice(category.name, item.name, item.type || 'MEN'),
+              express_price: this.getDefaultExpressPrice(
+                category.name,
+                item.name,
+                item.type || 'MEN',
+              ),
               price_unit: 'PER_PIECE',
               is_available: true,
             });
@@ -659,10 +663,6 @@ export class AdminService {
       Ironing: 30,
       'Wash & Iron': 70,
       'Dry Cleaning': 150,
-      'Stain Removal': 100,
-      'Shoe Cleaning': 250,
-      'Carpet Cleaning': 500,
-      'Curtain Cleaning': 200,
     };
     return basePrices[categoryName] || 50;
   }
@@ -674,10 +674,6 @@ export class AdminService {
       Ironing: 12,
       'Wash & Iron': 24,
       'Dry Cleaning': 48,
-      'Stain Removal': 48,
-      'Shoe Cleaning': 24,
-      'Carpet Cleaning': 72,
-      'Curtain Cleaning': 48,
     };
     return hours[categoryName] || 24;
   }
@@ -690,10 +686,6 @@ export class AdminService {
       Ironing: 0.6,
       'Wash & Iron': 1.4,
       'Dry Cleaning': 3,
-      'Stain Removal': 2,
-      'Shoe Cleaning': 5,
-      'Carpet Cleaning': 10,
-      'Curtain Cleaning': 4,
     };
 
     // Base prices by item type
@@ -1170,18 +1162,6 @@ export class AdminService {
       } else if (categoryLower.includes('dry clean')) {
         // Dry Cleaning - 200% of washing price
         price = Math.round(basePrice * 2);
-      } else if (categoryLower.includes('stain')) {
-        // Stain Removal - 150% of washing price
-        price = Math.round(basePrice * 1.5);
-      } else if (categoryLower.includes('shoe')) {
-        // Shoe cleaning - fixed prices
-        price = itemLower.includes('sneaker') ? 300 : itemLower.includes('boot') ? 400 : 250;
-      } else if (categoryLower.includes('carpet')) {
-        // Carpet cleaning - per sq ft or fixed
-        price = itemLower.includes('large') ? 1500 : itemLower.includes('medium') ? 1000 : 600;
-      } else if (categoryLower.includes('curtain')) {
-        // Curtain cleaning
-        price = itemLower.includes('large') ? 400 : 250;
       }
 
       // Express price is 50% more
@@ -1212,7 +1192,11 @@ export class AdminService {
 
         // Create pricing for each clothing item with default Pakistani prices
         const pricingData = clothingItems.map((item) => {
-          const { price, expressPrice } = getDefaultPrice(item.name, item.type || 'MEN', category.name);
+          const { price, expressPrice } = getDefaultPrice(
+            item.name,
+            item.type || 'MEN',
+            category.name,
+          );
           return {
             laundry_service_id: service.id,
             clothing_item_id: item.id,
@@ -1532,11 +1516,7 @@ export class AdminService {
         items: {
           include: {
             clothing_item: true,
-            laundry_service: {
-              include: {
-                category: true,
-              },
-            },
+            service_category: true,
           },
         },
         timeline: {
