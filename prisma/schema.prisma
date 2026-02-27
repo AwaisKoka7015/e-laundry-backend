@@ -72,6 +72,11 @@ enum OrderType {
   EXPRESS
 }
 
+enum PickupType {
+  RIDER_PICKUP
+  SELF_DROP_OFF
+}
+
 enum PaymentStatus {
   PENDING
   COMPLETED
@@ -193,6 +198,9 @@ model Laundry {
   delivery_radius_km Int         @default(3)
   self_pickup      Boolean       @default(true)
   self_dropoff     Boolean       @default(true)
+  free_pickup_delivery Boolean   @default(false)
+  delivery_fee         Float     @default(50)      // PKR per delivery
+  free_delivery_threshold Float  @default(1000)    // Free delivery above this amount (PKR)
 
   rating           Float         @default(0)
   total_orders     Int           @default(0)
@@ -371,6 +379,7 @@ model ServiceCategory {
   services        LaundryService[]
   default_prices  DefaultPrice[]
   laundry_pricing LaundryPricing[]
+  order_items     OrderItem[]
 
   @@map("service_categories")
 }
@@ -474,7 +483,6 @@ model LaundryService {
   laundry         Laundry          @relation(fields: [laundry_id], references: [id], onDelete: Cascade)
   category        ServiceCategory  @relation(fields: [category_id], references: [id])
   pricing         ServicePricing[]
-  order_items     OrderItem[]
 
   @@unique([laundry_id, category_id, name])
   @@map("laundry_services")
@@ -519,6 +527,7 @@ model Order {
   
   status                 OrderStatus   @default(PENDING)
   order_type             OrderType     @default(STANDARD)
+  pickup_type            PickupType    @default(RIDER_PICKUP)
   
   pickup_address         String
   pickup_latitude        Float
@@ -579,24 +588,24 @@ model Order {
 // ============================================
 
 model OrderItem {
-  id                  String         @id @default(uuid())
+  id                  String          @id @default(uuid())
   order_id            String
-  laundry_service_id  String
+  service_category_id String
   clothing_item_id    String
-  
-  quantity            Int            @default(1)
+
+  quantity            Int             @default(1)
   weight_kg           Float?
   unit_price          Float
-  price_unit          PriceUnit      @default(PER_PIECE)
+  price_unit          PriceUnit       @default(PER_PIECE)
   total_price         Float
-  
+
   special_notes       String?
-  
-  created_at          DateTime       @default(now())
-  
-  order               Order          @relation(fields: [order_id], references: [id], onDelete: Cascade)
-  laundry_service     LaundryService @relation(fields: [laundry_service_id], references: [id])
-  clothing_item       ClothingItem   @relation(fields: [clothing_item_id], references: [id])
+
+  created_at          DateTime        @default(now())
+
+  order               Order           @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  service_category    ServiceCategory @relation(fields: [service_category_id], references: [id])
+  clothing_item       ClothingItem    @relation(fields: [clothing_item_id], references: [id])
 
   @@map("order_items")
 }

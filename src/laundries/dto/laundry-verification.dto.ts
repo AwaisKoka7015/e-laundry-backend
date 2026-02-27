@@ -1,12 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsString,
-  IsNotEmpty,
-  Matches,
-  IsUrl,
-  IsOptional,
-  IsEnum,
-} from 'class-validator';
+import { IsString, IsNotEmpty, Matches, IsUrl, IsOptional, IsEnum } from 'class-validator';
 
 // CNIC format: XXXXX-XXXXXXX-X (13 digits with dashes)
 const CNIC_REGEX = /^\d{5}-\d{7}-\d{1}$/;

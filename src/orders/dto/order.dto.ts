@@ -20,6 +20,11 @@ export enum OrderType {
   EXPRESS = 'EXPRESS',
 }
 
+export enum PickupType {
+  RIDER_PICKUP = 'RIDER_PICKUP',
+  SELF_DROP_OFF = 'SELF_DROP_OFF',
+}
+
 export enum OrderStatus {
   PENDING = 'PENDING',
   ACCEPTED = 'ACCEPTED',
@@ -35,7 +40,7 @@ export enum OrderStatus {
 }
 
 export class OrderItemDto {
-  @ApiProperty()
+  @ApiProperty({ description: 'Service category UUID (from LaundryPricing)' })
   @IsUUID()
   service_id: string;
 
@@ -71,6 +76,11 @@ export class CreateOrderDto {
   @IsOptional()
   @IsEnum(OrderType)
   order_type?: OrderType = OrderType.STANDARD;
+
+  @ApiPropertyOptional({ enum: PickupType, default: PickupType.RIDER_PICKUP })
+  @IsOptional()
+  @IsEnum(PickupType)
+  pickup_type?: PickupType = PickupType.RIDER_PICKUP;
 
   @ApiProperty({ example: 'House 123, Street 5, DHA Phase 6, Lahore' })
   @IsString()

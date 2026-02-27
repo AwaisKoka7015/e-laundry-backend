@@ -1,4 +1,12 @@
-import { IsOptional, IsString, IsEnum, IsEmail, IsNumber, IsObject, ValidateIf } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsEmail,
+  IsNumber,
+  IsObject,
+  ValidateIf,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationQueryDto } from '../../common';
 

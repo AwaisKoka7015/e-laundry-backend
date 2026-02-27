@@ -84,7 +84,8 @@ export class LaundriesController {
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Step 3: Select services to offer',
-    description: 'Select which service categories (Wash & Iron, Iron Only, Dry Clean) to offer. Auto-generates pricing from defaults.',
+    description:
+      'Select which service categories (Wash & Iron, Iron Only, Dry Clean) to offer. Auto-generates pricing from defaults.',
   })
   @ApiResponse({
     status: 200,
@@ -118,7 +119,8 @@ export class LaundriesController {
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Step 4a: Review prices',
-    description: 'Get all pricing entries for review. Prices are grouped by service → category → items.',
+    description:
+      'Get all pricing entries for review. Prices are grouped by service → category → items.',
   })
   @ApiResponse({ status: 200, description: 'Pricing data for review' })
   async getReviewPrices(@CurrentUser() user: CurrentUserPayload) {
@@ -140,10 +142,7 @@ export class LaundriesController {
   })
   @ApiResponse({ status: 200, description: 'Prices updated' })
   @ApiResponse({ status: 400, description: 'Price outside allowed range' })
-  async updatePrices(
-    @CurrentUser() user: CurrentUserPayload,
-    @Body() dto: LaundryUpdatePricesDto,
-  ) {
+  async updatePrices(@CurrentUser() user: CurrentUserPayload, @Body() dto: LaundryUpdatePricesDto) {
     const data = await this.laundriesService.updatePrices(user.sub, dto);
     return {
       success: true,
@@ -159,7 +158,8 @@ export class LaundriesController {
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Step 5: Go live',
-    description: 'Complete onboarding and make laundry visible to customers. No admin approval needed.',
+    description:
+      'Complete onboarding and make laundry visible to customers. No admin approval needed.',
   })
   @ApiResponse({
     status: 200,
@@ -216,7 +216,8 @@ export class LaundriesController {
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Submit CNIC documents for verification',
-    description: 'Submit CNIC number and images for verification. Uploads should be done via /upload/cnic first.',
+    description:
+      'Submit CNIC number and images for verification. Uploads should be done via /upload/cnic first.',
   })
   @ApiResponse({
     status: 201,
@@ -251,7 +252,8 @@ export class LaundriesController {
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Resubmit CNIC documents after rejection',
-    description: 'Resubmit CNIC documents after a previous rejection. Only allowed if status is REJECTED.',
+    description:
+      'Resubmit CNIC documents after a previous rejection. Only allowed if status is REJECTED.',
   })
   @ApiResponse({
     status: 200,
@@ -495,7 +497,8 @@ export class LaundriesController {
   @ApiTags('Laundries')
   @ApiOperation({
     summary: 'Get laundry pricing',
-    description: 'Get active pricing for a laundry, grouped by service category and clothing category',
+    description:
+      'Get active pricing for a laundry, grouped by service category and clothing category',
   })
   @ApiResponse({
     status: 200,
@@ -506,13 +509,16 @@ export class LaundriesController {
         data: {
           services: [
             {
-              service: { id: 'uuid', name: 'Wash & Iron', name_urdu: 'دھلائی اور استری', estimated_hours: 24 },
+              service: {
+                id: 'uuid',
+                name: 'Wash & Iron',
+                name_urdu: 'دھلائی اور استری',
+                estimated_hours: 24,
+              },
               categories: [
                 {
                   category: { id: 'uuid', name: 'Men', name_urdu: 'مردانہ' },
-                  items: [
-                    { id: 'uuid', name: 'Shirt', name_urdu: 'قمیض', price: 80 },
-                  ],
+                  items: [{ id: 'uuid', name: 'Shirt', name_urdu: 'قمیض', price: 80 }],
                 },
               ],
             },

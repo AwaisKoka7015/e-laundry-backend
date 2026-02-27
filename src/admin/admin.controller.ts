@@ -371,10 +371,7 @@ export class AdminController {
   @ApiResponse({ status: 200, description: 'Verification reviewed' })
   @ApiResponse({ status: 400, description: 'Invalid verification status' })
   @ApiResponse({ status: 404, description: 'Laundry not found' })
-  async reviewVerification(
-    @Param('id') id: string,
-    @Body() dto: AdminReviewVerificationDto,
-  ) {
+  async reviewVerification(@Param('id') id: string, @Body() dto: AdminReviewVerificationDto) {
     const data = await this.adminService.reviewVerification(id, dto);
     return {
       success: true,

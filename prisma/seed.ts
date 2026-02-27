@@ -53,14 +53,19 @@ async function main() {
   console.log(`   ✅ ${clothingCategories.length} clothing categories seeded`);
 
   // ============================================
-  // SERVICE CATEGORIES (3)
+  // SERVICE CATEGORIES (4)
   // ============================================
   console.log('📁 Seeding service categories...');
 
+  // Rename legacy names to match app canonical names
+  await prisma.serviceCategory.updateMany({ where: { name: 'Iron Only' }, data: { name: 'Ironing' } });
+  await prisma.serviceCategory.updateMany({ where: { name: 'Dry Clean' }, data: { name: 'Dry Cleaning' } });
+
   const serviceCategories = [
-    { name: 'Wash & Iron', name_urdu: 'دھلائی اور استری', icon: '🧺', description: 'Complete wash and iron service', estimated_hours: 24, sort_order: 1 },
-    { name: 'Iron Only', name_urdu: 'صرف استری', icon: '♨️', description: 'Professional ironing and pressing', estimated_hours: 12, sort_order: 2 },
-    { name: 'Dry Clean', name_urdu: 'ڈرائی کلین', icon: '👔', description: 'Professional dry cleaning for delicate fabrics', estimated_hours: 72, sort_order: 3 },
+    { name: 'Washing', name_urdu: 'دھلائی', icon: '🧺', description: 'Professional washing service', estimated_hours: 24, sort_order: 1 },
+    { name: 'Ironing', name_urdu: 'استری', icon: '♨️', description: 'Professional ironing and pressing', estimated_hours: 12, sort_order: 2 },
+    { name: 'Wash & Iron', name_urdu: 'دھلائی اور استری', icon: '👕', description: 'Complete wash and iron service', estimated_hours: 24, sort_order: 3 },
+    { name: 'Dry Cleaning', name_urdu: 'ڈرائی کلیننگ', icon: '👔', description: 'Professional dry cleaning for delicate fabrics', estimated_hours: 72, sort_order: 4 },
   ];
 
   const serviceMap: Record<string, string> = {};
@@ -79,56 +84,56 @@ async function main() {
   // ============================================
   console.log('👔 Seeding clothing items...');
 
-  // Item data with prices: [name, name_urdu, is_popular, wash_iron_price, iron_only_price, dry_clean_price]
+  // Item data with prices: [name, name_urdu, is_popular, wash_only_price, wash_iron_price, iron_only_price, dry_clean_price]
   // NULL prices mean service not available for that item
 
-  const menItems: [string, string, boolean, number | null, number | null, number | null][] = [
-    ['Shirt', 'قمیض', true, 80, 30, 150],
-    ['Shalwar Kameez', 'شلوار قمیض', true, 100, 40, 200],
-    ['Pants / Trousers', 'پینٹ', true, 100, 40, 180],
-    ['T-Shirt', 'ٹی شرٹ', true, 70, 25, null],
-    ['Suit (2pc)', 'سوٹ 2 پیس', true, 200, 80, 400],
-    ['Suit (3pc)', 'سوٹ 3 پیس', false, 280, 100, 550],
-    ['Sherwani', 'شیروانی', false, 350, 150, 800],
-    ['Kurta', 'کرتا', false, 80, 30, 150],
-    ['Waistcoat', 'واسکٹ', false, 120, 50, 250],
-    ['Jacket / Blazer', 'جیکٹ', false, 200, 80, 400],
-    ['Sweater', 'سویٹر', false, 150, null, 300],
-    ['Underwear', 'انڈرویئر', false, 30, null, null],
+  const menItems: [string, string, boolean, number | null, number | null, number | null, number | null][] = [
+    ['Shirt', 'قمیض', true, 50, 80, 30, 150],
+    ['Shalwar Kameez', 'شلوار قمیض', true, 60, 100, 40, 200],
+    ['Pants / Trousers', 'پینٹ', true, 60, 100, 40, 180],
+    ['T-Shirt', 'ٹی شرٹ', true, 40, 70, 25, null],
+    ['Suit (2pc)', 'سوٹ 2 پیس', true, 120, 200, 80, 400],
+    ['Suit (3pc)', 'سوٹ 3 پیس', false, 170, 280, 100, 550],
+    ['Sherwani', 'شیروانی', false, 210, 350, 150, 800],
+    ['Kurta', 'کرتا', false, 50, 80, 30, 150],
+    ['Waistcoat', 'واسکٹ', false, 70, 120, 50, 250],
+    ['Jacket / Blazer', 'جیکٹ', false, 120, 200, 80, 400],
+    ['Sweater', 'سویٹر', false, 90, 150, null, 300],
+    ['Underwear', 'انڈرویئر', false, 20, 30, null, null],
   ];
 
-  const womenItems: [string, string, boolean, number | null, number | null, number | null][] = [
-    ['Shalwar Kameez (W)', 'شلوار قمیض', true, 120, 50, 250],
-    ['Dupatta', 'دوپٹہ', true, 50, 20, 100],
-    ['Suit 3pc (W)', 'سوٹ 3 پیس', true, 180, 70, 350],
-    ['Abaya / Burqa', 'عبایا / برقعہ', true, 150, 60, 300],
-    ['Lehnga', 'لہنگا', false, null, null, 1500],
-    ['Bridal Dress', 'شادی کا جوڑا', false, null, null, 3000],
-    ['Scarf / Shawl', 'شال / سکارف', false, 80, 30, 150],
-    ['Saree', 'ساڑی', false, 150, 60, 350],
-    ['Blouse / Top', 'بلاؤز', false, 80, 30, 150],
-    ['Trouser / Pajama', 'ٹراؤزر', false, 80, 30, 150],
+  const womenItems: [string, string, boolean, number | null, number | null, number | null, number | null][] = [
+    ['Shalwar Kameez (W)', 'شلوار قمیض', true, 70, 120, 50, 250],
+    ['Dupatta', 'دوپٹہ', true, 30, 50, 20, 100],
+    ['Suit 3pc (W)', 'سوٹ 3 پیس', true, 110, 180, 70, 350],
+    ['Abaya / Burqa', 'عبایا / برقعہ', true, 90, 150, 60, 300],
+    ['Lehnga', 'لہنگا', false, null, null, null, 1500],
+    ['Bridal Dress', 'شادی کا جوڑا', false, null, null, null, 3000],
+    ['Scarf / Shawl', 'شال / سکارف', false, 50, 80, 30, 150],
+    ['Saree', 'ساڑی', false, 90, 150, 60, 350],
+    ['Blouse / Top', 'بلاؤز', false, 50, 80, 30, 150],
+    ['Trouser / Pajama', 'ٹراؤزر', false, 50, 80, 30, 150],
   ];
 
-  const kidsItems: [string, string, boolean, number | null, number | null, number | null][] = [
-    ['School Uniform', 'سکول یونیفارم', true, 80, 30, null],
-    ['Kids Shalwar Kameez', 'بچوں کا شلوار قمیض', true, 60, 25, 120],
-    ['Kids Shirt / Top', 'بچوں کی قمیض', false, 50, 20, 100],
-    ['Kids Pants', 'بچوں کی پینٹ', false, 50, 20, 100],
-    ['Kids Party Wear', 'بچوں کی پارٹی ڈریس', false, null, null, 250],
+  const kidsItems: [string, string, boolean, number | null, number | null, number | null, number | null][] = [
+    ['School Uniform', 'سکول یونیفارم', true, 50, 80, 30, null],
+    ['Kids Shalwar Kameez', 'بچوں کا شلوار قمیض', true, 35, 60, 25, 120],
+    ['Kids Shirt / Top', 'بچوں کی قمیض', false, 30, 50, 20, 100],
+    ['Kids Pants', 'بچوں کی پینٹ', false, 30, 50, 20, 100],
+    ['Kids Party Wear', 'بچوں کی پارٹی ڈریس', false, null, null, null, 250],
   ];
 
-  const householdItems: [string, string, boolean, number | null, number | null, number | null][] = [
-    ['Bedsheet (Single)', 'چادر سنگل', true, 120, 50, null],
-    ['Bedsheet (Double)', 'چادر ڈبل', true, 180, 80, null],
-    ['Pillow Cover', 'تکیے کا غلاف', true, 40, 20, null],
-    ['Razai (Single)', 'رضائی سنگل', true, 350, null, 600],
-    ['Razai (Double)', 'رضائی ڈبل', false, 500, null, 800],
-    ['Blanket', 'کمبل', false, 300, null, 500],
-    ['Curtain (Panel)', 'پردہ', true, 150, 60, 250],
-    ['Sofa Cover', 'صوفہ کور', false, 200, null, 350],
-    ['Towel', 'تولیہ', false, 60, null, null],
-    ['Table Cloth', 'میز پوش', false, 100, 40, null],
+  const householdItems: [string, string, boolean, number | null, number | null, number | null, number | null][] = [
+    ['Bedsheet (Single)', 'چادر سنگل', true, 70, 120, 50, null],
+    ['Bedsheet (Double)', 'چادر ڈبل', true, 110, 180, 80, null],
+    ['Pillow Cover', 'تکیے کا غلاف', true, 25, 40, 20, null],
+    ['Razai (Single)', 'رضائی سنگل', true, 210, 350, null, 600],
+    ['Razai (Double)', 'رضائی ڈبل', false, 300, 500, null, 800],
+    ['Blanket', 'کمبل', false, 180, 300, null, 500],
+    ['Curtain (Panel)', 'پردہ', true, 90, 150, 60, 250],
+    ['Sofa Cover', 'صوفہ کور', false, 120, 200, null, 350],
+    ['Towel', 'تولیہ', false, 35, 60, null, null],
+    ['Table Cloth', 'میز پوش', false, 60, 100, 40, null],
   ];
 
   // Helper to create items and collect default prices
@@ -141,14 +146,14 @@ async function main() {
   const defaultPrices: DefaultPriceEntry[] = [];
 
   const createItems = async (
-    items: [string, string, boolean, number | null, number | null, number | null][],
+    items: [string, string, boolean, number | null, number | null, number | null, number | null][],
     categoryName: string,
     clothingType: ClothingType,
   ) => {
     const categoryId = categoryMap[categoryName];
     let sortOrder = 0;
 
-    for (const [name, nameUrdu, isPopular, washIron, ironOnly, dryClean] of items) {
+    for (const [name, nameUrdu, isPopular, washOnly, washIron, ironOnly, dryClean] of items) {
       sortOrder++;
       const item = await prisma.clothingItem.upsert({
         where: { name_type: { name, type: clothingType } },
@@ -169,6 +174,13 @@ async function main() {
       });
 
       // Collect default prices (only non-null)
+      if (washOnly !== null) {
+        defaultPrices.push({
+          clothing_item_id: item.id,
+          service_category_id: serviceMap['Washing'],
+          price: washOnly,
+        });
+      }
       if (washIron !== null) {
         defaultPrices.push({
           clothing_item_id: item.id,
@@ -179,14 +191,14 @@ async function main() {
       if (ironOnly !== null) {
         defaultPrices.push({
           clothing_item_id: item.id,
-          service_category_id: serviceMap['Iron Only'],
+          service_category_id: serviceMap['Ironing'],
           price: ironOnly,
         });
       }
       if (dryClean !== null) {
         defaultPrices.push({
           clothing_item_id: item.id,
-          service_category_id: serviceMap['Dry Clean'],
+          service_category_id: serviceMap['Dry Cleaning'],
           price: dryClean,
         });
       }

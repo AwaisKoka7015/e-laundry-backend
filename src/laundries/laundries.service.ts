@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -426,7 +431,14 @@ export class LaundriesService {
     const servicesMap = new Map<
       string,
       {
-        service: { id: string; name: string; name_urdu: string | null; estimated_hours: number };
+        service: {
+          id: string;
+          name: string;
+          name_urdu: string | null;
+          estimated_hours: number;
+          icon: string;
+          description: string;
+        };
         categoriesMap: Map<
           string,
           {
@@ -448,6 +460,8 @@ export class LaundriesService {
             name: entry.service_category.name,
             name_urdu: entry.service_category.name_urdu,
             estimated_hours: entry.service_category.estimated_hours,
+            icon: entry.service_category.icon || '',
+            description: entry.service_category.description || '',
           },
           categoriesMap: new Map(),
         });
@@ -470,6 +484,10 @@ export class LaundriesService {
         name: entry.clothing_item.name,
         name_urdu: entry.clothing_item.name_urdu,
         price: entry.price,
+        type: entry.clothing_item.type || null,
+        clothing_category_id: entry.clothing_item.clothing_category_id || '',
+        icon: entry.clothing_item.icon || '',
+        is_popular: entry.clothing_item.is_popular ?? false,
       });
     }
 
@@ -548,12 +566,12 @@ export class LaundriesService {
       ...(is_verified !== undefined && { is_verified }),
     };
 
-    // If category filter, we need to filter by services
+    // If category filter, filter by laundry pricing (populated during onboarding)
     if (category_id) {
-      where.services = {
+      where.laundry_pricing = {
         some: {
-          category_id,
-          is_available: true,
+          service_category_id: category_id,
+          is_active: true,
         },
       };
     }
@@ -612,10 +630,10 @@ export class LaundriesService {
     };
 
     if (category_id) {
-      where.services = {
+      where.laundry_pricing = {
         some: {
-          category_id,
-          is_available: true,
+          service_category_id: category_id,
+          is_active: true,
         },
       };
     }
@@ -681,10 +699,10 @@ export class LaundriesService {
     };
 
     if (category_id) {
-      where.services = {
+      where.laundry_pricing = {
         some: {
-          category_id,
-          is_available: true,
+          service_category_id: category_id,
+          is_active: true,
         },
       };
     }
@@ -938,6 +956,7 @@ export class LaundriesService {
       services_count: laundry.services_count,
       is_verified: laundry.is_verified,
       is_open: laundry.is_open,
+      free_pickup_delivery: laundry.free_pickup_delivery,
       latitude: laundry.latitude,
       longitude: laundry.longitude,
       address_text: laundry.address_text,
@@ -965,6 +984,7 @@ export class LaundriesService {
       services_count: true,
       is_verified: true,
       is_open: true,
+      free_pickup_delivery: true,
       address_text: true,
       city: true,
       latitude: true,
@@ -978,27 +998,27 @@ export class LaundriesService {
   private async getServicesPreview(laundryIds: string[]): Promise<Map<string, string[]>> {
     if (laundryIds.length === 0) return new Map();
 
-    const services = await this.prisma.laundryService.findMany({
+    const pricings = await this.prisma.laundryPricing.findMany({
       where: {
         laundry_id: { in: laundryIds },
-        is_available: true,
+        is_active: true,
       },
       select: {
         laundry_id: true,
-        category: {
+        service_category: {
           select: { name: true },
         },
       },
-      distinct: ['laundry_id', 'category_id'],
+      distinct: ['laundry_id', 'service_category_id'],
     });
 
     const servicesMap = new Map<string, string[]>();
-    services.forEach((service) => {
-      const existing = servicesMap.get(service.laundry_id) || [];
-      if (!existing.includes(service.category.name)) {
-        existing.push(service.category.name);
+    pricings.forEach((pricing) => {
+      const existing = servicesMap.get(pricing.laundry_id) || [];
+      if (!existing.includes(pricing.service_category.name)) {
+        existing.push(pricing.service_category.name);
       }
-      servicesMap.set(service.laundry_id, existing.slice(0, 3)); // Max 3 preview
+      servicesMap.set(pricing.laundry_id, existing.slice(0, 3)); // Max 3 preview
     });
 
     return servicesMap;
@@ -1019,6 +1039,7 @@ export class LaundriesService {
       services_count: laundry.services_count,
       is_verified: laundry.is_verified,
       is_open: laundry.is_open,
+      free_pickup_delivery: laundry.free_pickup_delivery,
       address_text: laundry.address_text,
       city: laundry.city,
       latitude: laundry.latitude,
