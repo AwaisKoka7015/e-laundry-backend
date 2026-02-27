@@ -357,6 +357,35 @@ export class NotificationsService {
     return notification;
   }
 
+  // Notify laundry about new review
+  async notifyLaundryNewReview(
+    laundryId: string,
+    reviewId: string,
+    orderId: string,
+    customerName: string,
+    rating: number,
+  ) {
+    const title = 'New Review Received ⭐';
+    const body = `${customerName} rated your service ${rating}/5. Tap to view.`;
+
+    const notification = await this.createNotification({
+      type: 'REVIEW',
+      title,
+      body,
+      laundryId,
+      data: { review_id: reviewId, order_id: orderId },
+    });
+
+    await this.sendPushToLaundry(laundryId, title, body, {
+      type: 'NEW_REVIEW',
+      review_id: reviewId,
+      order_id: orderId,
+      notification_id: notification.id,
+    });
+
+    return notification;
+  }
+
   // Send welcome notification
   async sendWelcomeNotification(userId: string, role: string, name?: string) {
     const greeting = name ? `Welcome, ${name}!` : 'Welcome to E-Laundry!';

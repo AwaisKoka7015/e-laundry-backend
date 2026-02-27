@@ -3,13 +3,20 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '@/notifications/notifications.service';
 import { CreateReviewDto, ReplyReviewDto } from './dto';
 
 @Injectable()
 export class ReviewsService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(ReviewsService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   // Customer: Create review for an order
   async createReview(orderId: string, customerId: string, dto: CreateReviewDto) {
@@ -56,6 +63,19 @@ export class ReviewsService {
 
     // Update laundry rating
     await this.updateLaundryRating(order.laundry_id);
+
+    // Notify laundry about new review (fire-and-forget)
+    try {
+      await this.notificationsService.notifyLaundryNewReview(
+        order.laundry_id,
+        review.id,
+        orderId,
+        review.customer?.name || 'A customer',
+        dto.rating,
+      );
+    } catch (error) {
+      this.logger.error('Failed to send review notification:', error);
+    }
 
     return { review };
   }

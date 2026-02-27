@@ -27,7 +27,7 @@ import {
   SelectRoleDto,
   RegisterCustomerDto,
   RegisterLaundryDto,
-  UpdateLocationDto,
+  UpdateProfileLocationDto,
   RefreshTokenDto,
   LogoutDto,
   FirebaseAuthDto,
@@ -198,7 +198,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Update user location' })
   @ApiResponse({ status: 200, description: 'Location updated successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async updateLocation(@CurrentUser() user: CurrentUserPayload, @Body() dto: UpdateLocationDto) {
+  async updateLocation(@CurrentUser() user: CurrentUserPayload, @Body() dto: UpdateProfileLocationDto) {
     const data = await this.authService.updateLocation(user.sub, user.role, dto);
     return {
       success: true,
