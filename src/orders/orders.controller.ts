@@ -92,6 +92,27 @@ export class OrdersController {
     return { success: true, ...data };
   }
 
+  @Post('orders/:id/confirm-delivery')
+  @ApiTags('Orders - Customer')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('CUSTOMER')
+  @ApiBearerAuth('access-token')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Confirm order delivery' })
+  @ApiResponse({ status: 200, description: 'Delivery confirmed' })
+  @ApiResponse({ status: 400, description: 'Order not in OUT_FOR_DELIVERY status' })
+  async confirmDelivery(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+  ) {
+    const data = await this.ordersService.confirmDelivery(id, user.sub);
+    return {
+      success: true,
+      message: 'Delivery confirmed successfully',
+      data,
+    };
+  }
+
   @Get('orders/:id/timeline')
   @ApiTags('Orders - Customer')
   @UseGuards(JwtAuthGuard)

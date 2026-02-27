@@ -230,7 +230,10 @@ export class OrdersService {
         where,
         include: {
           items: {
-            include: { clothing_item: true },
+            include: {
+              clothing_item: true,
+              service_category: true,
+            },
           },
           laundry: {
             select: {
@@ -432,11 +435,19 @@ export class OrdersService {
     }
 
     // Validate status transition
-    const allowedStatuses = this.STATUS_FLOW[order.status] || [];
-    if (!allowedStatuses.includes(dto.status)) {
-      throw new BadRequestException(
-        `Invalid status transition from ${order.status} to ${dto.status}. Allowed: ${allowedStatuses.join(', ')}`,
-      );
+    // Allow ACCEPTED → PROCESSING directly for self drop-off orders (skip pickup steps)
+    const isSelfDropOffProcessing =
+      order.status === 'ACCEPTED' &&
+      dto.status === 'PROCESSING' &&
+      order.pickup_type === 'SELF_DROP_OFF';
+
+    if (!isSelfDropOffProcessing) {
+      const allowedStatuses = this.STATUS_FLOW[order.status] || [];
+      if (!allowedStatuses.includes(dto.status)) {
+        throw new BadRequestException(
+          `Invalid status transition from ${order.status} to ${dto.status}. Allowed: ${allowedStatuses.join(', ')}`,
+        );
+      }
     }
 
     const updateData: any = {
@@ -509,6 +520,75 @@ export class OrdersService {
     } catch (error) {
       // Don't fail the status update if notification fails
       this.logger.error(`Failed to send notification for order ${orderId}:`, error);
+    }
+
+    return { order: updatedOrder };
+  }
+
+  // ==================== CUSTOMER DELIVERY CONFIRMATION ====================
+
+  async confirmDelivery(orderId: string, customerId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        customer_id: customerId,
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (order.status !== 'OUT_FOR_DELIVERY') {
+      throw new BadRequestException(
+        `Cannot confirm delivery for order in ${order.status} status. Order must be out for delivery.`,
+      );
+    }
+
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: 'DELIVERED',
+        actual_delivery_date: new Date(),
+      },
+    });
+
+    // Create timeline entry
+    await this.createTimelineEntry(
+      orderId,
+      'DELIVERED',
+      'Delivered',
+      'Customer confirmed delivery',
+    );
+
+    // Create status history
+    await this.prisma.orderStatusHistory.create({
+      data: {
+        order_id: orderId,
+        to_status: 'DELIVERED',
+        notes: 'Customer confirmed delivery',
+        changed_by: customerId,
+      },
+    });
+
+    const updatedOrder = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: { include: { clothing_item: true } },
+        laundry: true,
+      },
+    });
+
+    // Notify laundry about delivery confirmation
+    try {
+      await this.notificationsService.notifyLaundryNewOrder(
+        order.laundry_id,
+        orderId,
+        order.order_number,
+      );
+      this.logger.log(`Delivery confirmation notification sent for order ${order.order_number}`);
+    } catch (error) {
+      this.logger.error(`Failed to send delivery confirmation notification:`, error);
     }
 
     return { order: updatedOrder };

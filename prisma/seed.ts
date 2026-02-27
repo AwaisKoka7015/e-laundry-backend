@@ -265,9 +265,41 @@ async function main() {
   console.log('🎟️  Seeding promo codes...');
 
   const promoCodes = [
-    { code: 'WELCOME50', discount_type: 'PERCENTAGE', discount_value: 50, max_discount: 200, min_order_amount: 300, valid_until: new Date('2026-12-31'), first_order_only: true },
-    { code: 'FIRST100', discount_type: 'FIXED', discount_value: 100, min_order_amount: 500, valid_until: new Date('2026-12-31'), first_order_only: true },
-    { code: 'FLAT20', discount_type: 'PERCENTAGE', discount_value: 20, max_discount: 150, min_order_amount: 200, valid_until: new Date('2026-12-31'), first_order_only: false },
+    {
+      code: 'WELCOME50',
+      discount_type: 'PERCENTAGE',
+      discount_value: 50,
+      max_discount: 200,
+      min_order_amount: 300,
+      valid_until: new Date('2026-12-31'),
+      first_order_only: true,
+      title: 'Welcome Offer',
+      subtitle: 'Get 50% off on your first order! Max discount PKR 200',
+      banner_color: 'orange',
+    },
+    {
+      code: 'FIRST100',
+      discount_type: 'FIXED',
+      discount_value: 100,
+      min_order_amount: 500,
+      valid_until: new Date('2026-12-31'),
+      first_order_only: true,
+      title: 'First Order Bonus',
+      subtitle: 'Flat PKR 100 off on your first laundry order',
+      banner_color: 'blue',
+    },
+    {
+      code: 'FLAT20',
+      discount_type: 'PERCENTAGE',
+      discount_value: 20,
+      max_discount: 150,
+      min_order_amount: 200,
+      valid_until: new Date('2026-12-31'),
+      first_order_only: false,
+      title: 'Flat 20% Off',
+      subtitle: 'Use anytime! 20% discount up to PKR 150',
+      banner_color: 'green',
+    },
   ];
 
   for (const promo of promoCodes) {

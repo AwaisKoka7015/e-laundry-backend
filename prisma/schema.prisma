@@ -722,25 +722,30 @@ model Payment {
 model PromoCode {
   id               String    @id @default(uuid())
   code             String    @unique
-  
+
   discount_type    String    @default("PERCENTAGE")
   discount_value   Float
-  
+
   min_order_amount Float     @default(0)
   max_discount     Float?
-  
+
   valid_from       DateTime  @default(now())
   valid_until      DateTime
-  
+
   usage_limit      Int?
   used_count       Int       @default(0)
-  
+
   first_order_only Boolean   @default(false)
   specific_users   Json?
   specific_laundries Json?
-  
+
   is_active        Boolean   @default(true)
-  
+
+  // Banner display fields
+  title            String?
+  subtitle         String?
+  banner_color     String?   // gradient key: "orange", "blue", "green"
+
   created_at       DateTime  @default(now())
   updated_at       DateTime  @updatedAt
 

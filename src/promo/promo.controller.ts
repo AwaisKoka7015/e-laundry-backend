@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { PromoService } from './promo.service';
 import { ValidatePromoDto } from './dto';
@@ -12,6 +12,14 @@ import { CurrentUser, CurrentUserPayload, Roles, RolesGuard } from '../common';
 @ApiBearerAuth('access-token')
 export class PromoController {
   constructor(private readonly promoService: PromoService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'Get active promo codes' })
+  @ApiResponse({ status: 200, description: 'List of active promo codes' })
+  async getActivePromos() {
+    const data = await this.promoService.getActivePromos();
+    return data;
+  }
 
   @Post('validate')
   @HttpCode(HttpStatus.OK)

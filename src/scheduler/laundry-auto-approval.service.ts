@@ -17,7 +17,7 @@ export class LaundryAutoApprovalService {
    *   - approved_at is null (not yet approved)
    *   - setup_at is older than LAUNDRY_AUTO_APPROVE_MINUTES (default 5 for dev)
    */
-  @Cron(CronExpression.EVERY_MINUTE)
+  // @Cron(CronExpression.EVERY_MINUTE) // Disabled: laundries now register and set up themselves
   async handleAutoApproval() {
     const autoApproveMinutes = parseInt(process.env.LAUNDRY_AUTO_APPROVE_MINUTES || '5', 10);
     const cutoffTime = new Date(Date.now() - autoApproveMinutes * 60 * 1000);
