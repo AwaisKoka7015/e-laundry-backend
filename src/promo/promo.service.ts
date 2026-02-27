@@ -6,6 +6,38 @@ import { ValidatePromoDto } from './dto';
 export class PromoService {
   constructor(private prisma: PrismaService) {}
 
+  async getActivePromos() {
+    const now = new Date();
+    const promos = await this.prisma.promoCode.findMany({
+      where: {
+        is_active: true,
+        valid_from: { lte: now },
+        valid_until: { gt: now },
+      },
+      select: {
+        code: true,
+        discount_type: true,
+        discount_value: true,
+        max_discount: true,
+        min_order_amount: true,
+        valid_until: true,
+        first_order_only: true,
+        usage_limit: true,
+        used_count: true,
+        title: true,
+        subtitle: true,
+        banner_color: true,
+      },
+      orderBy: { created_at: 'desc' },
+      take: 10,
+    });
+
+    // Filter out promos that have exceeded their usage limit
+    return promos.filter(
+      (p) => !p.usage_limit || p.used_count < p.usage_limit,
+    );
+  }
+
   async validatePromo(customerId: string, dto: ValidatePromoDto) {
     const promo = await this.prisma.promoCode.findUnique({
       where: { code: dto.code.toUpperCase() },

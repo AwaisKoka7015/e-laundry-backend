@@ -823,13 +823,18 @@ export class AuthService {
       }
       return { user: this.sanitizeUser(user) };
     } else if (role === 'LAUNDRY') {
-      const laundry = await this.prisma.laundry.findUnique({
-        where: { id: userId },
-      });
+      const [laundry, totalOrders] = await Promise.all([
+        this.prisma.laundry.findUnique({
+          where: { id: userId },
+        }),
+        this.prisma.order.count({
+          where: { laundry_id: userId },
+        }),
+      ]);
       if (!laundry) {
         throw new UnauthorizedException('Laundry not found');
       }
-      return { user: this.sanitizeLaundry(laundry) };
+      return { user: { ...this.sanitizeLaundry(laundry), total_orders: totalOrders } };
     }
 
     throw new UnauthorizedException('Invalid role');
