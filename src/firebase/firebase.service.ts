@@ -86,6 +86,17 @@ export class FirebaseService implements OnModuleInit {
   }
 
   /**
+   * Create a Firebase custom token for Firestore auth
+   * @param userId - Backend user/laundry ID to embed as UID
+   */
+  async createCustomToken(userId: string): Promise<string> {
+    if (admin.apps.length === 0) {
+      throw new Error('Firebase not initialized');
+    }
+    return admin.auth().createCustomToken(userId);
+  }
+
+  /**
    * Send push notification to a single device
    * @param fcmToken - Device FCM token
    * @param title - Notification title
