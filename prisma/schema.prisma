@@ -160,6 +160,7 @@ model User {
   orders         Order[]
   reviews        Review[]
   notifications  Notification[]
+  favourites     Favourite[]
 
   @@map("users")
 }
@@ -235,6 +236,7 @@ model Laundry {
   reviews          Review[]
   notifications    Notification[]
   laundry_pricing  LaundryPricing[]
+  favourites       Favourite[]
 
   // Indexes for optimized queries
   @@index([status, rating(sort: Desc)])
@@ -830,4 +832,23 @@ model AppSetting {
   updated_at DateTime @updatedAt
 
   @@map("app_settings")
+}
+
+// ============================================
+// FAVOURITE TABLE (Customer favourited laundries)
+// ============================================
+
+model Favourite {
+  id          String   @id @default(uuid())
+  user_id     String
+  laundry_id  String
+  created_at  DateTime @default(now())
+
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  laundry     Laundry  @relation(fields: [laundry_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, laundry_id])
+  @@index([user_id])
+  @@index([laundry_id])
+  @@map("favourites")
 }

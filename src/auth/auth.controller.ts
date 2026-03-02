@@ -21,6 +21,7 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { FirebaseService } from '@/firebase/firebase.service';
 import {
   SendOtpDto,
   VerifyOtpDto,
@@ -39,7 +40,10 @@ import { CurrentUser, CurrentUserPayload } from '../common/decorators';
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly firebaseService: FirebaseService,
+  ) {}
 
   @Post('send-otp')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
@@ -323,6 +327,20 @@ Register the device's FCM token to receive push notifications.
       success: true,
       message: 'Device registered for push notifications',
     };
+  }
+
+  @Get('firebase-token')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Get Firebase custom token for Firestore auth',
+    description: 'Returns a Firebase custom token so the mobile app can authenticate with Firestore using the backend user ID.',
+  })
+  @ApiResponse({ status: 200, description: 'Firebase token generated' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getFirebaseToken(@CurrentUser() user: CurrentUserPayload) {
+    const token = await this.firebaseService.createCustomToken(user.sub);
+    return { success: true, data: { firebase_token: token } };
   }
 
   @Post('unregister-device')

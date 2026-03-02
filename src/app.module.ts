@@ -23,6 +23,8 @@ import { SchedulerModule } from './scheduler/scheduler.module';
 import { HealthModule } from './health/health.module';
 import { ContactModule } from './contact/contact.module';
 import { DeliveryModule } from './delivery/delivery.module';
+import { ChatModule } from './chat/chat.module';
+import { FavouritesModule } from './favourites/favourites.module';
 
 @Module({
   imports: [
@@ -52,6 +54,8 @@ import { DeliveryModule } from './delivery/delivery.module';
     HealthModule,
     ContactModule,
     DeliveryModule,
+    ChatModule,
+    FavouritesModule,
   ],
   providers: [
     {
