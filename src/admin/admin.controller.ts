@@ -29,7 +29,7 @@ import {
   UpdateLaundryDto,
   PendingSetupLaundriesQueryDto,
   AdminOrdersQueryDto,
-  UpdateOrderStatusDto,
+  AdminUpdateOrderStatusDto,
   CreateCategoryDto,
   UpdateCategoryDto,
   ReorderCategoriesDto,
@@ -494,7 +494,7 @@ export class AdminController {
   @ApiOperation({ summary: 'Update order status' })
   @ApiResponse({ status: 200, description: 'Order status updated' })
   @ApiResponse({ status: 404, description: 'Order not found' })
-  async updateOrderStatus(@Param('id') id: string, @Body() dto: UpdateOrderStatusDto) {
+  async updateOrderStatus(@Param('id') id: string, @Body() dto: AdminUpdateOrderStatusDto) {
     const data = await this.adminService.updateOrderStatus(id, dto.status, dto.notes);
     return {
       success: true,

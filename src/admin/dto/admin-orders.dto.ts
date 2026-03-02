@@ -66,7 +66,7 @@ export class AdminOrdersQueryDto {
   date_to?: string;
 }
 
-export class UpdateOrderStatusDto {
+export class AdminUpdateOrderStatusDto {
   @IsEnum([
     'PENDING',
     'ACCEPTED',

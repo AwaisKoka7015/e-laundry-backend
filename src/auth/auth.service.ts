@@ -16,7 +16,7 @@ import {
   SelectRoleDto,
   RegisterCustomerDto,
   RegisterLaundryDto,
-  UpdateLocationDto,
+  UpdateProfileLocationDto,
   RefreshTokenDto,
   LogoutDto,
   FirebaseAuthDto,
@@ -706,7 +706,7 @@ export class AuthService {
   }
 
   // ==================== UPDATE LOCATION ====================
-  async updateLocation(userId: string, role: string, dto: UpdateLocationDto) {
+  async updateLocation(userId: string, role: string, dto: UpdateProfileLocationDto) {
     const { latitude, longitude, city, address_text, near_landmark } = dto;
 
     if (role === 'CUSTOMER') {

@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateOrderDto, UpdateOrderStatusDto, CancelOrderDto } from './dto';
@@ -123,57 +124,70 @@ export class OrdersService {
 
     const totalAmount = subtotal + deliveryFee + expressFee - discount;
 
-    // Generate order number
-    const orderNumber = await this.generateOrderNumber();
-
     // Calculate estimated delivery
     const estimatedHours = dto.order_type === 'EXPRESS' ? 12 : 24;
     const expectedDeliveryDate = new Date(dto.pickup_date);
     expectedDeliveryDate.setHours(expectedDeliveryDate.getHours() + estimatedHours);
 
-    // Create order
-    const order = await this.prisma.order.create({
-      data: {
-        order_number: orderNumber,
-        customer_id: customerId,
-        laundry_id: dto.laundry_id,
-        status: 'PENDING',
-        order_type: dto.order_type || 'STANDARD',
-        pickup_type: dto.pickup_type || 'RIDER_PICKUP',
-        pickup_address: dto.pickup_address,
-        pickup_latitude: dto.pickup_latitude,
-        pickup_longitude: dto.pickup_longitude,
-        pickup_date: new Date(dto.pickup_date),
-        pickup_time_slot: dto.pickup_time_slot,
-        pickup_notes: dto.pickup_notes,
-        delivery_address: dto.delivery_address || dto.pickup_address,
-        delivery_latitude: dto.delivery_latitude || dto.pickup_latitude,
-        delivery_longitude: dto.delivery_longitude || dto.pickup_longitude,
-        delivery_notes: dto.delivery_notes,
-        expected_delivery_date: expectedDeliveryDate,
-        subtotal,
-        delivery_fee: deliveryFee,
-        express_fee: expressFee,
-        discount,
-        promo_code: dto.promo_code,
-        total_amount: totalAmount,
-        payment_method: 'COD',
-        payment_status: 'PENDING',
-        special_instructions: dto.special_instructions,
-        items: {
-          create: orderItems,
-        },
-      },
-      include: {
-        items: {
-          include: {
-            clothing_item: true,
-            service_category: true,
+    // Create order with retry on order_number collision
+    const maxRetries = 3;
+    let order;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const orderNumber = await this.generateOrderNumber();
+      try {
+        order = await this.prisma.order.create({
+          data: {
+            order_number: orderNumber,
+            customer_id: customerId,
+            laundry_id: dto.laundry_id,
+            status: 'PENDING',
+            order_type: dto.order_type || 'STANDARD',
+            pickup_type: dto.pickup_type || 'RIDER_PICKUP',
+            pickup_address: dto.pickup_address,
+            pickup_latitude: dto.pickup_latitude,
+            pickup_longitude: dto.pickup_longitude,
+            pickup_date: new Date(dto.pickup_date),
+            pickup_time_slot: dto.pickup_time_slot,
+            pickup_notes: dto.pickup_notes,
+            delivery_address: dto.delivery_address || dto.pickup_address,
+            delivery_latitude: dto.delivery_latitude || dto.pickup_latitude,
+            delivery_longitude: dto.delivery_longitude || dto.pickup_longitude,
+            delivery_notes: dto.delivery_notes,
+            expected_delivery_date: expectedDeliveryDate,
+            subtotal,
+            delivery_fee: deliveryFee,
+            express_fee: expressFee,
+            discount,
+            promo_code: dto.promo_code,
+            total_amount: totalAmount,
+            payment_method: 'COD',
+            payment_status: 'PENDING',
+            special_instructions: dto.special_instructions,
+            items: {
+              create: orderItems,
+            },
           },
-        },
-        laundry: true,
-      },
-    });
+          include: {
+            items: {
+              include: {
+                clothing_item: true,
+                service_category: true,
+              },
+            },
+            laundry: true,
+          },
+        });
+        break;
+      } catch (error) {
+        const isUniqueViolation =
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002';
+        if (!isUniqueViolation || attempt === maxRetries - 1) {
+          throw error;
+        }
+        this.logger.warn(`Order number collision (${orderNumber}), retrying...`);
+      }
+    }
 
     // Create timeline entry
     await this.createTimelineEntry(
@@ -204,8 +218,8 @@ export class OrdersService {
 
     // Notify laundry about new order
     try {
-      await this.notificationsService.notifyLaundryNewOrder(dto.laundry_id, order.id, orderNumber);
-      this.logger.log(`New order notification sent to laundry for order ${orderNumber}`);
+      await this.notificationsService.notifyLaundryNewOrder(dto.laundry_id, order.id, order.order_number);
+      this.logger.log(`New order notification sent to laundry for order ${order.order_number}`);
     } catch (error) {
       // Don't fail order creation if notification fails
       this.logger.error(`Failed to send new order notification:`, error);
@@ -599,21 +613,25 @@ export class OrdersService {
   private async generateOrderNumber(): Promise<string> {
     const date = new Date();
     const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
+    const prefix = `ORD-${dateStr}-`;
 
-    const todayStart = new Date(date.setHours(0, 0, 0, 0));
-    const todayEnd = new Date(date.setHours(23, 59, 59, 999));
-
-    const todayCount = await this.prisma.order.count({
+    const lastOrder = await this.prisma.order.findFirst({
       where: {
-        created_at: {
-          gte: todayStart,
-          lte: todayEnd,
-        },
+        order_number: { startsWith: prefix },
       },
+      orderBy: { order_number: 'desc' },
+      select: { order_number: true },
     });
 
-    const sequence = String(todayCount + 1).padStart(4, '0');
-    return `ORD-${dateStr}-${sequence}`;
+    let sequence = 1;
+    if (lastOrder) {
+      const lastSeq = parseInt(lastOrder.order_number.split('-')[2], 10);
+      if (!isNaN(lastSeq)) {
+        sequence = lastSeq + 1;
+      }
+    }
+
+    return `${prefix}${String(sequence).padStart(4, '0')}`;
   }
 
   private async createTimelineEntry(

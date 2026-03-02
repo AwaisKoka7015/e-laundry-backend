@@ -145,7 +145,7 @@ export class SelectRoleDto {
   email?: string;
 }
 
-export class UpdateLocationDto {
+export class UpdateProfileLocationDto {
   @ApiProperty({ example: 31.5204 })
   @IsNumber()
   @Min(-90)
