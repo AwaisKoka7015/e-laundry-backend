@@ -30,7 +30,7 @@ npm run format                     # Prettier formatting
 
 ## Architecture Overview
 
-NestJS 10 backend for an E-Laundry marketplace (Pakistani users). PostgreSQL with Prisma ORM. Schema at `prisma/schema.prisma`.
+NestJS 10 backend for a CleanZo marketplace (Pakistani users). PostgreSQL with Prisma ORM. Schema at `prisma/schema.prisma`.
 
 ### Global Infrastructure (main.ts + app.module.ts)
 

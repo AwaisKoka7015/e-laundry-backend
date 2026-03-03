@@ -16,18 +16,18 @@ async function main() {
 
   const hashedPassword = await bcrypt.hash('admin123', 10);
   await prisma.user.upsert({
-    where: { email: 'admin@elaundry.pk' },
+    where: { email: 'admin@cleanzo.app' },
     update: { password: hashedPassword, role: 'ADMIN', status: 'ACTIVE' },
     create: {
       phone_number: '+920000000000',
       name: 'Admin',
-      email: 'admin@elaundry.pk',
+      email: 'admin@cleanzo.app',
       password: hashedPassword,
       role: 'ADMIN',
       status: 'ACTIVE',
     },
   });
-  console.log('   ✅ Admin user seeded (admin@elaundry.pk / admin123)');
+  console.log('   ✅ Admin user seeded (admin@cleanzo.app / admin123)');
 
   // ============================================
   // CLOTHING CATEGORIES (4)

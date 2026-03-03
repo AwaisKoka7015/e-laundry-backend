@@ -27,7 +27,7 @@ export class CloudinaryService {
       }
 
       const result = await cloudinary.uploader.upload(imageData, {
-        folder: `e-laundry/${folder}`,
+        folder: `cleanzo/${folder}`,
         public_id: publicId,
         overwrite: true,
         resource_type: 'image',
@@ -55,9 +55,9 @@ export class CloudinaryService {
 
   getPublicIdFromUrl(url: string): string | null {
     try {
-      const regex = /\/e-laundry\/([^/]+\/[^.]+)/;
+      const regex = /\/(cleanzo|e-laundry)\/([^/]+\/[^.]+)/;
       const match = url.match(regex);
-      return match ? `e-laundry/${match[1]}` : null;
+      return match ? `${match[1]}/${match[2]}` : null;
     } catch {
       return null;
     }

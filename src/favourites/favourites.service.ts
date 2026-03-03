@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { FavouriteSortBy } from './dto';
 
@@ -81,9 +76,7 @@ export class FavouritesService {
           }),
         ]);
 
-        const serviceNames = [
-          ...new Set(fav.laundry.services.map((s) => s.category.name)),
-        ];
+        const serviceNames = [...new Set(fav.laundry.services.map((s) => s.category.name))];
 
         let distanceKm: number | null = null;
         if (

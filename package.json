@@ -1,8 +1,8 @@
 {
-  "name": "e-laundry-backend",
+  "name": "cleanzo-backend",
   "version": "2.0.0",
-  "description": "E-Laundry Backend API - NestJS",
-  "author": "E-Laundry Team",
+  "description": "CleanZo Backend API - NestJS",
+  "author": "CleanZo Team",
   "private": true,
   "license": "MIT",
   "scripts": {

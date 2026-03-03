@@ -1,6 +1,6 @@
-# E-Laundry Backend - NestJS
+# CleanZo Backend - NestJS
 
-Complete backend API for the E-Laundry application targeting Pakistani users.
+Complete backend API for the CleanZo application targeting Pakistani users.
 
 ## Tech Stack
 
@@ -99,7 +99,7 @@ src/
 1. **Clone and install dependencies**
 ```bash
 git clone <repository-url>
-cd e-laundry-backend
+cd cleanzo-backend
 npm install
 ```
 
@@ -134,7 +134,7 @@ npm run start:dev
 
 ```env
 # Database
-DATABASE_URL="postgresql://user:password@localhost:5432/elaundry"
+DATABASE_URL="postgresql://user:password@localhost:5432/cleanzo"
 
 # JWT
 JWT_ACCESS_SECRET="your-super-secret-jwt-key"
@@ -395,7 +395,7 @@ npm run start:prod
 
 ## Admin Panel
 
-A separate React admin panel is available at `e-laundry-admin/`.
+A separate React admin panel is available at `cleanzo-admin/`.
 
 **Admin API Endpoints:** All under `/api/admin/`
 - Dashboard & analytics

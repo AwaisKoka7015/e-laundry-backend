@@ -202,7 +202,10 @@ export class AuthController {
   @ApiOperation({ summary: 'Update user location' })
   @ApiResponse({ status: 200, description: 'Location updated successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async updateLocation(@CurrentUser() user: CurrentUserPayload, @Body() dto: UpdateProfileLocationDto) {
+  async updateLocation(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: UpdateProfileLocationDto,
+  ) {
     const data = await this.authService.updateLocation(user.sub, user.role, dto);
     return {
       success: true,
@@ -334,7 +337,8 @@ Register the device's FCM token to receive push notifications.
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Get Firebase custom token for Firestore auth',
-    description: 'Returns a Firebase custom token so the mobile app can authenticate with Firestore using the backend user ID.',
+    description:
+      'Returns a Firebase custom token so the mobile app can authenticate with Firestore using the backend user ID.',
   })
   @ApiResponse({ status: 200, description: 'Firebase token generated' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })

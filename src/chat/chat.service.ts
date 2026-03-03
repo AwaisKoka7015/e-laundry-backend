@@ -32,7 +32,9 @@ export class ChatService {
     }
 
     if (!fcmToken) {
-      this.logger.warn(`No FCM token for ${recipientRole} ${recipientId}, skipping chat notification`);
+      this.logger.warn(
+        `No FCM token for ${recipientRole} ${recipientId}, skipping chat notification`,
+      );
       return { sent: false, reason: 'No FCM token' };
     }
 

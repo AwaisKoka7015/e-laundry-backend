@@ -388,7 +388,7 @@ export class NotificationsService {
 
   // Send welcome notification
   async sendWelcomeNotification(userId: string, role: string, name?: string) {
-    const greeting = name ? `Welcome, ${name}!` : 'Welcome to E-Laundry!';
+    const greeting = name ? `Welcome, ${name}!` : 'Welcome to CleanZo!';
     const body =
       role === 'CUSTOMER'
         ? 'Find the best laundry services near you.'
