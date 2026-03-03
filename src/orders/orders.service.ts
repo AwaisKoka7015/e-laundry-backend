@@ -180,8 +180,7 @@ export class OrdersService {
         break;
       } catch (error) {
         const isUniqueViolation =
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2002';
+          error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
         if (!isUniqueViolation || attempt === maxRetries - 1) {
           throw error;
         }
@@ -218,7 +217,11 @@ export class OrdersService {
 
     // Notify laundry about new order
     try {
-      await this.notificationsService.notifyLaundryNewOrder(dto.laundry_id, order.id, order.order_number);
+      await this.notificationsService.notifyLaundryNewOrder(
+        dto.laundry_id,
+        order.id,
+        order.order_number,
+      );
       this.logger.log(`New order notification sent to laundry for order ${order.order_number}`);
     } catch (error) {
       // Don't fail order creation if notification fails

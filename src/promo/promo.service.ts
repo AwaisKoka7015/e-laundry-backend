@@ -33,9 +33,7 @@ export class PromoService {
     });
 
     // Filter out promos that have exceeded their usage limit
-    return promos.filter(
-      (p) => !p.usage_limit || p.used_count < p.usage_limit,
-    );
+    return promos.filter((p) => !p.usage_limit || p.used_count < p.usage_limit);
   }
 
   async validatePromo(customerId: string, dto: ValidatePromoDto) {

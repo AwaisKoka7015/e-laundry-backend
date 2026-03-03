@@ -1,4 +1,4 @@
-// Prisma Schema for E-Laundry App
+// Prisma Schema for CleanZo App
 // Database: PostgreSQL
 // VERSION: 2.0 - Added Services, Orders, Reviews, Notifications, Delivery Partner
 

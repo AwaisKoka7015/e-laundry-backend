@@ -3339,8 +3339,8 @@ export class AdminService {
   // Default settings values
   private readonly defaultSettings: Record<string, any> = {
     // General
-    app_name: 'E-Laundry',
-    support_email: 'support@elaundry.pk',
+    app_name: 'CleanZo',
+    support_email: 'support@cleanzo.app',
     support_phone: '+92 300 1234567',
     currency: 'PKR',
     timezone: 'Asia/Karachi',

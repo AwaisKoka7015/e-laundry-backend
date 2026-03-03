@@ -50,12 +50,12 @@ async function bootstrap() {
 
   // Swagger documentation
   const config = new DocumentBuilder()
-    .setTitle('E-Laundry API')
+    .setTitle('CleanZo API')
     .setDescription(
       `
-## E-Laundry Backend API
+## CleanZo Backend API
 
-Complete backend API for the E-Laundry application targeting Pakistani users.
+Complete backend API for the CleanZo application targeting Pakistani users.
 
 ### Authentication Flow:
 1. **Send OTP**: User enters phone number → API sends OTP (constant 0000 for development)

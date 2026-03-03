@@ -30,7 +30,7 @@ describe('AdminService', () => {
   describe('adminLogin', () => {
     const mockAdmin = {
       id: 'admin-id',
-      email: 'admin@elaundry.pk',
+      email: 'admin@cleanzo.app',
       password: '$2b$10$hashedpassword',
       phone_number: '+920000000000',
       name: 'Admin',
@@ -44,13 +44,13 @@ describe('AdminService', () => {
       jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(true));
       (prisma.user.update as jest.Mock).mockResolvedValue(mockAdmin);
 
-      const result = await service.adminLogin('admin@elaundry.pk', 'admin123');
+      const result = await service.adminLogin('admin@cleanzo.app', 'admin123');
 
       expect(result).toHaveProperty('access_token');
       expect(result).toHaveProperty('refresh_token');
-      expect(result.user.email).toBe('admin@elaundry.pk');
+      expect(result.user.email).toBe('admin@cleanzo.app');
       expect(prisma.user.findFirst).toHaveBeenCalledWith({
-        where: { email: 'admin@elaundry.pk', role: 'ADMIN' },
+        where: { email: 'admin@cleanzo.app', role: 'ADMIN' },
       });
     });
 
@@ -66,7 +66,7 @@ describe('AdminService', () => {
       (prisma.user.findFirst as jest.Mock).mockResolvedValue(mockAdmin);
       jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(false));
 
-      await expect(service.adminLogin('admin@elaundry.pk', 'wrongpassword')).rejects.toThrow(
+      await expect(service.adminLogin('admin@cleanzo.app', 'wrongpassword')).rejects.toThrow(
         UnauthorizedException,
       );
     });
@@ -78,7 +78,7 @@ describe('AdminService', () => {
       });
       jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(true));
 
-      await expect(service.adminLogin('admin@elaundry.pk', 'admin123')).rejects.toThrow(
+      await expect(service.adminLogin('admin@cleanzo.app', 'admin123')).rejects.toThrow(
         UnauthorizedException,
       );
     });
@@ -89,7 +89,7 @@ describe('AdminService', () => {
       const mockProfile = {
         id: 'admin-id',
         name: 'Admin',
-        email: 'admin@elaundry.pk',
+        email: 'admin@cleanzo.app',
         role: 'ADMIN',
         avatar: null,
         phone_number: '+920000000000',
@@ -100,7 +100,7 @@ describe('AdminService', () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockProfile);
 
       const result = await service.getAdminProfile('admin-id');
-      expect(result.email).toBe('admin@elaundry.pk');
+      expect(result.email).toBe('admin@cleanzo.app');
     });
 
     it('should throw NotFoundException for non-admin user', async () => {

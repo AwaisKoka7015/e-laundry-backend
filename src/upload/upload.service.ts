@@ -50,7 +50,7 @@ export class UploadService {
 
     try {
       const result = await cloudinary.uploader.upload(image, {
-        folder: `e-laundry/${folderName}`,
+        folder: `cleanzo/${folderName}`,
         transformation,
         resource_type: 'image',
       });

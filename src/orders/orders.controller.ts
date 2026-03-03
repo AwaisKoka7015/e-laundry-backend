@@ -101,10 +101,7 @@ export class OrdersController {
   @ApiOperation({ summary: 'Confirm order delivery' })
   @ApiResponse({ status: 200, description: 'Delivery confirmed' })
   @ApiResponse({ status: 400, description: 'Order not in OUT_FOR_DELIVERY status' })
-  async confirmDelivery(
-    @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
-  ) {
+  async confirmDelivery(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
     const data = await this.ordersService.confirmDelivery(id, user.sub);
     return {
       success: true,
