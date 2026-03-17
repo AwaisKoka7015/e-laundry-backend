@@ -1,21 +1,18 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { HealthCheckService, HealthCheck, PrismaHealthIndicator } from '@nestjs/terminus';
-import { PrismaService } from '../prisma/prisma.service';
+import { Public } from '@common/decorators/public.decorator';
 
 @ApiTags('Health')
 @Controller('health')
 export class HealthController {
-  constructor(
-    private health: HealthCheckService,
-    private prismaHealth: PrismaHealthIndicator,
-    private prisma: PrismaService,
-  ) {}
-
   @Get()
-  @HealthCheck()
+  @Public()
   @ApiOperation({ summary: 'Health check endpoint' })
   check() {
-    return this.health.check([() => this.prismaHealth.pingCheck('database', this.prisma)]);
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+    };
   }
 }
